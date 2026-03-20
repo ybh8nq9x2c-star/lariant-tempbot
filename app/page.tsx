@@ -495,11 +495,14 @@ function PnlChart({ trades }: { trades: TradeRecord[] }) {
 // ============================================================================
 export default function LariantTerminal() {
   // ── State ─────────────────────────────────────────────────────────────────
+  // isMounted MUST be first — used to gate the entire render and prevent
+  // React Hydration Error #418 (server HTML ≠ client initial render).
+  const [isMounted,    setIsMounted]    = useState(false);
   const [activeTab,    setActiveTab]    = useState<ActiveTab>('terminal');
   const [walletAddr,   setWalletAddr]   = useState(DEFAULT_WALLET);
   const [walletInput,  setWalletInput]  = useState(DEFAULT_WALLET);
   const [positions,    setPositions]    = useState<Position[]>([]);
-  // usdcBalance — on-chain USDC.e from Polygon RPC; null = not yet fetched
+  // usdcBalance — on-chain from Polygon RPC; null = not yet fetched
   // Kept separate from tradePnls so an RPC failure never affects the PNL tab UI
   const [usdcBalance,  setUsdcBalance]  = useState<number | null>(null);
   const [mapLon,       setMapLon]       = useState<BucketData[]>([]);
@@ -511,21 +514,30 @@ export default function LariantTerminal() {
   const [pnlFetched,   setPnlFetched]   = useState(false);
   const [loadingPos,   setLoadingPos]   = useState(false);
   const [clock,        setClock]        = useState('');
-  const [logs,         setLogs]         = useState<string[]>([
-    `[${new Date().toLocaleTimeString()}] SYS: Booting LARIANT v1.0...`,
-    `[${new Date().toLocaleTimeString()}] NET: Shadow Node initializing...`,
-  ]);
+  // Empty on SSR — populated after mount to avoid toLocaleTimeString() mismatch
+  const [logs,         setLogs]         = useState<string[]>([]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const log = useCallback((msg: string) => {
     setLogs(prev => [...prev.slice(-60), `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
 
-  // ── Bootstrap: load localStorage (safe — runs only client-side) ───────────
+  // ── Mount + Bootstrap ─────────────────────────────────────────────────────
+  // Single effect — fires once, client-side only.
+  // 1. setIsMounted(true) → unblocks the full render (hydration guard)
+  // 2. Seeds the event log with timestamped boot messages (safe: client only)
+  // 3. Loads wallet from localStorage, falling back to DEFAULT_WALLET
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const w = localStorage.getItem(LS_WALLET_KEY) || DEFAULT_WALLET;
-    setWalletAddr(w); setWalletInput(w);
+    setIsMounted(true);
+    const now = new Date().toLocaleTimeString();
+    setLogs([
+      `[${now}] SYS: Booting LARIANT v1.0...`,
+      `[${now}] NET: Shadow Node online — wallet ${DEFAULT_WALLET.slice(0,6)}…${DEFAULT_WALLET.slice(-4)}`,
+    ]);
+    if (typeof window !== 'undefined') {
+      const w = localStorage.getItem(LS_WALLET_KEY) || DEFAULT_WALLET;
+      setWalletAddr(w); setWalletInput(w);
+    }
   }, []);
 
   // ── Clock ─────────────────────────────────────────────────────────────────
@@ -1090,6 +1102,23 @@ export default function LariantTerminal() {
     { tab: 'settings',  label: 'SETTINGS',
       path: 'M19.43 12.98c.04-.32.07-.64.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.12-.22-.39-.3-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.23-.09-.49 0-.61.22l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.12.22.39.3.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.23.09.49 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5c-1.93 0-3.5-1.57-3.5-3.5s1.57-3.5 3.5-3.5 3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z' },
   ];
+
+  // ============================================================================
+  // Hydration guard — server and first client render return this identical
+  // loading screen. Once the client mounts, isMounted flips to true and the
+  // full app renders. Eliminates React Error #418 (hydration mismatch).
+  // IMPORTANT: this must come AFTER every useState / useEffect call above.
+  // ============================================================================
+  if (!isMounted) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <span className="font-mono text-sm tracking-widest animate-pulse"
+          style={{ color: '#9fff88' }}>
+          [ INITIALIZING LARIANT ENGINE... ]
+        </span>
+      </div>
+    );
+  }
 
   // ============================================================================
   // Render
