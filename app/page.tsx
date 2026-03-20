@@ -182,14 +182,14 @@ function InferenceChart({ city, code, forecast, map, sigma }: InferenceChartProp
             <span key={lbl} className="text-[7px] uppercase opacity-50 flex items-center gap-1">{sw}{lbl}</span>
           ))}
         </div>
-        {/* Chart */}
-        <div className="flex-grow min-h-0">
+        {/* Chart — explicit px height required: Recharts cannot measure flex-grow at hydration */}
+        <div style={{ height: 140, overflow: 'hidden' }}>
           {map.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-[8px] uppercase tracking-widest animate-pulse" style={{ color: '#9fff88' }}>
+            <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9fff88', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }} className="animate-pulse">
               Computing…
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={140}>
               <ComposedChart data={map} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id={`grad_${code}`} x1="0" y1="0" x2="0" y2="1">
@@ -407,15 +407,27 @@ export default function LariantTerminal() {
 
   // ── Orderbook CLOB (every 15 s — respectful of rate limits) ─────────────
   useEffect(() => {
-    // Require a real token ID — must be a non-trivial hex/numeric string (≥10 chars)
-    if (!tokenId || tokenId.trim().length < 10) return;
+    // Require a real Polymarket token ID: hex starting with 0x, at least 20 chars
     const tid = tokenId.trim();
+    if (!tid || tid.length < 20) return;
+
+    // Declare iv BEFORE run so the async body can call clearInterval(iv) on fatal errors
+    let iv: ReturnType<typeof setInterval>;
+
     const run = async () => {
       try {
         const r = await fetch(`https://clob.polymarket.com/book?token_id=${tid}`);
         if (!r.ok) {
-          // 429 = rate limited: back off silently, don't flood the log
-          if (r.status !== 429) log(`WARN: CLOB ${r.status}`);
+          if (r.status === 404) {
+            // Token not found — this token will never be valid. Kill the loop
+            // and clear the stored token so the user knows to re-configure.
+            clearInterval(iv);
+            log('WARN: CLOB 404 — token invalid, polling stopped');
+            setTokenId('');
+            setTokenInput('');
+            if (typeof window !== 'undefined') localStorage.removeItem(LS_TOKEN_KEY);
+          }
+          // 429 = rate limited; other errors: back off silently, interval continues
           return;
         }
         const d = await r.json();
@@ -431,13 +443,14 @@ export default function LariantTerminal() {
           .slice(0, 10);
         setOrderbook({ bids, asks, lastUpdated: new Date() });
       } catch {
-        // Network error — silent, do not cascade re-renders via log
+        // Network error — silent, interval continues, will retry next tick
       }
     };
+
     run();
-    const iv = setInterval(run, 15_000);
+    iv = setInterval(run, 15_000);
     return () => clearInterval(iv);
-  }, [tokenId, log]);
+  }, [tokenId, log]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ============================================================================
   // Tab: TERMINAL
