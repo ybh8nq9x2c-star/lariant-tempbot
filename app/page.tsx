@@ -241,57 +241,80 @@ const fmt = (val: number) =>
 const pct = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`;
 
 // ============================================================================
-// fetchUsdcBalance — reads USDC.e balance directly from Polygon via public RPC.
-// Contract : 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174 (USDC.e, Polymarket)
+// fetchUsdcBalance — queries BOTH Polymarket USDC contracts on Polygon and
+// returns their SUM, so the balance is correct regardless of which contract
+// holds the funds (Polymarket migrated from USDC.e to native USDC in 2024).
+//
+// Contracts checked in parallel:
+//   USDC.e  (bridged)  0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+//   USDC    (native)   0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+//
+// RPC cascade (tried in order until one succeeds):
+//   1. Alchemy  https://polygon-mainnet.g.alchemy.com/v2/yynv8Dor1C-RYgiInJk2V
+//   2. Ankr     https://rpc.ankr.com/polygon
+//   3. Public   https://polygon-rpc.com
+//
 // Selector : balanceOf(address) = 0x70a08231
-// ABI enc. : strip 0x, lowercase, left-pad address to exactly 64 hex chars (32 bytes)
-// Decimals : 6  →  divide raw hex result by 1_000_000
+// ABI enc. : strip 0x, lowercase, left-pad address to 64 hex chars (32 bytes)
+// Decimals : 6 on both contracts
 // ============================================================================
+const USDC_CONTRACTS = [
+  { name: 'USDC.e', addr: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' },
+  { name: 'USDC',   addr: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' },
+] as const;
+
+const RPC_CASCADE = [
+  'https://polygon-mainnet.g.alchemy.com/v2/yynv8Dor1C-RYgiInJk2V',
+  'https://rpc.ankr.com/polygon',
+  'https://polygon-rpc.com',
+] as const;
+
+async function rpcCall(rpcUrl: string, to: string, data: string): Promise<number> {
+  const res = await fetch(rpcUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'eth_call',
+      params: [{ to, data }, 'latest'],
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const d = await res.json();
+  if (!d?.result || d.result === '0x' || d.result === '0x0') return 0;
+  const raw = parseInt(d.result, 16);
+  return isFinite(raw) ? raw / 1_000_000 : 0;
+}
+
 async function fetchUsdcBalance(walletAddress: string): Promise<number> {
   if (!walletAddress || typeof walletAddress !== 'string') return 0;
-  try {
-    // ABI-encode the address parameter: strip 0x, lowercase, pad to 32 bytes (64 hex chars)
-    const cleanAddress  = walletAddress.toLowerCase().replace(/^0x/, '');
-    const paddedAddress = cleanAddress.padStart(64, '0');
-    const dataPayload   = '0x70a08231' + paddedAddress;
 
-    // Ankr public Polygon RPC — CORS-permissive, no rate-limit on read calls
-    const response = await fetch('https://rpc.ankr.com/polygon', {
-      method:  'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept':        'application/json',
-      },
-      body: JSON.stringify({
-        jsonrpc: '2.0',
-        id:      1,
-        method:  'eth_call',
-        params:  [
-          {
-            to:   '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC.e on Polygon
-            data: dataPayload,
-          },
-          'latest',
-        ],
-      }),
-    });
+  // ABI-encode: strip 0x, lowercase, pad to 32 bytes (64 hex chars)
+  const paddedAddress = walletAddress.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+  const dataPayload   = '0x70a08231' + paddedAddress;
 
-    if (!response.ok) {
-      console.error('USDC RPC (Ankr): HTTP error', response.status);
-      return 0;
+  // Query both contracts in parallel via the first RPC that responds
+  let totalBalance = 0;
+  for (const rpcUrl of RPC_CASCADE) {
+    try {
+      // Both contracts share the same call structure — run them in parallel
+      const results = await Promise.all(
+        USDC_CONTRACTS.map(c => rpcCall(rpcUrl, c.addr, dataPayload))
+      );
+      totalBalance = results.reduce((s, v) => s + v, 0);
+      console.log(
+        `USDC [${rpcUrl.split('/')[2]}]:`,
+        USDC_CONTRACTS.map((c, i) => `${c.name}=${results[i].toFixed(4)}`).join(' '),
+        `→ total $${totalBalance.toFixed(4)}`
+      );
+      return totalBalance; // success — no need to try next RPC
+    } catch (e) {
+      console.warn(`USDC RPC failed (${rpcUrl.split('/')[2]}):`, (e as Error).message);
+      // fall through to next RPC in cascade
     }
-
-    const data = await response.json();
-
-    if (!data?.result || data.result === '0x' || data.result === '0x0') return 0;
-    // Parse the 32-byte ABI-encoded uint256 result, divide by 1e6 (USDC.e decimals)
-    const raw = parseInt(data.result, 16);
-    if (!isFinite(raw)) return 0;
-    return raw / 1_000_000;
-  } catch (e) {
-    console.error('USDC Fetch Error (Ankr):', e);
-    return 0;
   }
+
+  console.error('USDC: all RPCs failed — returning 0');
+  return 0;
 }
 
 // ============================================================================
@@ -567,7 +590,7 @@ export default function LariantTerminal() {
       const usdc = await fetchUsdcBalance(walletAddr);
       if (!cancelled) {
         setUsdcBalance(usdc);
-        log(`RPC: USDC.e on-chain = ${fmt(usdc)}`);
+        log(`RPC: USDC balance (USDC.e + USDC native) = ${fmt(usdc)}`);
       }
     };
     run();
@@ -704,7 +727,7 @@ export default function LariantTerminal() {
               </div>
               {/* Liquid cash on-chain */}
               <div>
-                <span className="block text-[8px] uppercase opacity-40 mb-0.5">USDC.e (Liquid)</span>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">USDC (Liquid)</span>
                 <span className="text-xl font-bold text-white">
                   {usdc !== null ? fmt(usdc) : <span className="animate-pulse opacity-40">…</span>}
                 </span>
