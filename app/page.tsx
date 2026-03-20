@@ -45,9 +45,9 @@ const EV_THRESHOLD    = 0.05;
 const DUST_THRESHOLD  = 0.10;
 const LS_WALLET_KEY   = 'lariant_wallet';
 const DEFAULT_WALLET  = '0x3a6Fe25c5320dC81F35F0f4e6bE8bDc76BC5e1c7';
-// "Clean Slate" cutoff — only activity on/after this UTC date is counted in PnL.
-// Update this string to reset the performance clock to a new start date.
-const PNL_CUTOFF_TIMESTAMP = new Date('2026-03-20T00:00:00Z').getTime();
+// "Clean Slate" hard cutoff — only activity STRICTLY AFTER this UTC moment counts.
+// Update the string to move the performance clock forward at any time.
+const PNL_CUTOFF_TIMESTAMP = new Date('2026-03-20T10:15:00Z').getTime();
 
 // ============================================================================
 // Math Helpers — Normal CDF (Abramowitz & Stegun, error < 1.5e-7)
@@ -255,9 +255,13 @@ async function fetchUsdcBalance(walletAddress: string): Promise<number> {
     const paddedAddress = cleanAddress.padStart(64, '0');
     const dataPayload   = '0x70a08231' + paddedAddress;
 
-    const response = await fetch('https://polygon-rpc.com', {
+    // Ankr public Polygon RPC — CORS-permissive, no rate-limit on read calls
+    const response = await fetch('https://rpc.ankr.com/polygon', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept':        'application/json',
+      },
       body: JSON.stringify({
         jsonrpc: '2.0',
         id:      1,
@@ -273,7 +277,7 @@ async function fetchUsdcBalance(walletAddress: string): Promise<number> {
     });
 
     if (!response.ok) {
-      console.error('USDC RPC: HTTP error', response.status);
+      console.error('USDC RPC (Ankr): HTTP error', response.status);
       return 0;
     }
 
@@ -285,7 +289,7 @@ async function fetchUsdcBalance(walletAddress: string): Promise<number> {
     if (!isFinite(raw)) return 0;
     return raw / 1_000_000;
   } catch (e) {
-    console.error('USDC Fetch Error:', e);
+    console.error('USDC Fetch Error (Ankr):', e);
     return 0;
   }
 }
@@ -638,7 +642,7 @@ export default function LariantTerminal() {
             const ms = typeof ts === 'string'
               ? new Date(ts).getTime()
               : Number(ts) * (String(ts).length <= 10 ? 1000 : 1); // unix-s vs unix-ms
-            return isFinite(ms) && ms >= PNL_CUTOFF_TIMESTAMP;
+            return isFinite(ms) && ms > PNL_CUTOFF_TIMESTAMP; // strict: drop anything AT or before cutoff
           } catch { return false; }
         });
 
@@ -809,32 +813,32 @@ export default function LariantTerminal() {
                 </div>
               </header>
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                {/* Realized PnL */}
+                {/* Realized PnL — shows $0.00 on clean-slate, never NaN */}
                 <div>
                   <span className="block text-[8px] uppercase opacity-40 mb-0.5">Realized PnL</span>
                   <span className="text-xl font-bold" style={{ color: total === 0 ? '#ababab' : totalPnl >= 0 ? '#9fff88' : '#ff706f' }}>
-                    {total === 0 ? '—' : `${totalPnl >= 0 ? '+' : ''}${fmt(totalPnl)}`}
+                    {total === 0 ? '$0.00' : `${totalPnl >= 0 ? '+' : ''}${fmt(totalPnl)}`}
                   </span>
                 </div>
                 {/* Win Rate */}
                 <div>
                   <span className="block text-[8px] uppercase opacity-40 mb-0.5">Win Rate</span>
                   <span className="text-xl font-bold" style={{ color: total === 0 ? '#ababab' : winRate >= 50 ? '#9fff88' : '#ff706f' }}>
-                    {total === 0 ? '—' : `${winRate.toFixed(1)}%`}
+                    {total === 0 ? '0%' : `${winRate.toFixed(1)}%`}
                   </span>
                 </div>
                 {/* Profit Factor */}
                 <div>
                   <span className="block text-[8px] uppercase opacity-40 mb-0.5">Profit Factor</span>
-                  <span className="text-sm font-bold" style={{ color: total === 0 ? '#ababab' : profFact >= 1 ? '#9fff88' : '#ff706f' }}>
+                  <span className="text-sm font-bold" style={{ color: '#ababab' }}>
                     {total === 0 ? '—' : profFact === Infinity ? '∞' : profFact.toFixed(2)}
                   </span>
                 </div>
                 {/* Sharpe */}
                 <div>
                   <span className="block text-[8px] uppercase opacity-40 mb-0.5">Sharpe Ratio</span>
-                  <span className="text-sm font-bold" style={{ color: total < 2 ? '#ababab' : sharpe >= 0 ? '#9fff88' : '#ff706f' }}>
-                    {total < 2 ? '—' : sharpe.toFixed(3)}
+                  <span className="text-sm font-bold" style={{ color: '#ababab' }}>
+                    {total < 2 ? '—' : (isFinite(sharpe) ? sharpe.toFixed(3) : '—')}
                   </span>
                 </div>
                 {/* Total Trades */}
@@ -853,6 +857,16 @@ export default function LariantTerminal() {
                 </div>
               </div>
             </section>
+
+            {/* Clean-slate empty state — shown when fetch done but zero trades in window */}
+            {total === 0 && pnlFetched && (
+              <section className="border border-[#262626] bg-[#020202] p-5 text-center space-y-2">
+                <div className="w-2 h-2 rounded-full bg-[#9fff88] mx-auto animate-pulse" />
+                <p className="text-[9px] uppercase tracking-widest opacity-40">Clean Slate Active</p>
+                <p className="text-[8px] opacity-25">No closed trades after cutoff</p>
+                <p className="text-[9px] font-mono" style={{ color: '#9fff88' }}>$0.00 · 0 Trades</p>
+              </section>
+            )}
 
             {/* PnL bar chart — last 20 closed trades */}
             <section className="border border-[#262626] bg-[#020202] overflow-hidden p-3">
