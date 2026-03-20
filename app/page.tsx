@@ -45,6 +45,9 @@ const EV_THRESHOLD    = 0.05;
 const DUST_THRESHOLD  = 0.10;
 const LS_WALLET_KEY   = 'lariant_wallet';
 const DEFAULT_WALLET  = '0x3a6Fe25c5320dC81F35F0f4e6bE8bDc76BC5e1c7';
+// "Clean Slate" cutoff — only activity on/after this UTC date is counted in PnL.
+// Update this string to reset the performance clock to a new start date.
+const PNL_CUTOFF_TIMESTAMP = new Date('2026-03-20T00:00:00Z').getTime();
 
 // ============================================================================
 // Math Helpers — Normal CDF (Abramowitz & Stegun, error < 1.5e-7)
@@ -238,38 +241,51 @@ const fmt = (val: number) =>
 const pct = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`;
 
 // ============================================================================
-// fetchUsdcBalance — reads USDC.e balance directly from Polygon via public RPC
-// No API key required. USDC.e contract: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
-// balanceOf(address) selector: 0x70a08231, padded to 32 bytes
+// fetchUsdcBalance — reads USDC.e balance directly from Polygon via public RPC.
+// Contract : 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174 (USDC.e, Polymarket)
+// Selector : balanceOf(address) = 0x70a08231
+// ABI enc. : strip 0x, lowercase, left-pad address to exactly 64 hex chars (32 bytes)
+// Decimals : 6  →  divide raw hex result by 1_000_000
 // ============================================================================
 async function fetchUsdcBalance(walletAddress: string): Promise<number> {
-  if (!walletAddress || walletAddress.length !== 42) return 0;
-  // Strip 0x prefix and left-pad to 32 bytes for the ABI-encoded address param
-  const paddedAddr = walletAddress.slice(2).toLowerCase().padStart(64, '0');
-  const payload = {
-    jsonrpc: '2.0',
-    id:      1,
-    method:  'eth_call',
-    params:  [
-      {
-        to:   '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC.e on Polygon
-        data: '0x70a08231' + paddedAddr,                    // balanceOf(address)
-      },
-      'latest',
-    ],
-  };
+  if (!walletAddress || typeof walletAddress !== 'string') return 0;
   try {
-    const r = await fetch('https://polygon-rpc.com', {
+    // ABI-encode the address parameter: strip 0x, lowercase, pad to 32 bytes (64 hex chars)
+    const cleanAddress  = walletAddress.toLowerCase().replace(/^0x/, '');
+    const paddedAddress = cleanAddress.padStart(64, '0');
+    const dataPayload   = '0x70a08231' + paddedAddress;
+
+    const response = await fetch('https://polygon-rpc.com', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(payload),
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id:      1,
+        method:  'eth_call',
+        params:  [
+          {
+            to:   '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC.e on Polygon
+            data: dataPayload,
+          },
+          'latest',
+        ],
+      }),
     });
-    if (!r.ok) return 0;
-    const d = await r.json();
-    if (!d?.result || d.result === '0x') return 0;
-    // USDC.e has 6 decimals
-    return parseInt(d.result, 16) / 1_000_000;
-  } catch {
+
+    if (!response.ok) {
+      console.error('USDC RPC: HTTP error', response.status);
+      return 0;
+    }
+
+    const data = await response.json();
+
+    if (!data?.result || data.result === '0x' || data.result === '0x0') return 0;
+    // Parse the 32-byte ABI-encoded uint256 result, divide by 1e6 (USDC.e decimals)
+    const raw = parseInt(data.result, 16);
+    if (!isFinite(raw)) return 0;
+    return raw / 1_000_000;
+  } catch (e) {
+    console.error('USDC Fetch Error:', e);
     return 0;
   }
 }
@@ -456,8 +472,9 @@ export default function LariantTerminal() {
   const [walletAddr,   setWalletAddr]   = useState(DEFAULT_WALLET);
   const [walletInput,  setWalletInput]  = useState(DEFAULT_WALLET);
   const [positions,    setPositions]    = useState<Position[]>([]);
-  // usdc = on-chain USDC.e balance; posValue + total are derived in render from positions
-  const [portfolio,    setPortfolio]    = useState<{ usdc: number } | null>(null);
+  // usdcBalance — on-chain USDC.e from Polygon RPC; null = not yet fetched
+  // Kept separate from tradePnls so an RPC failure never affects the PNL tab UI
+  const [usdcBalance,  setUsdcBalance]  = useState<number | null>(null);
   const [mapLon,       setMapLon]       = useState<BucketData[]>([]);
   const [mapSeo,       setMapSeo]       = useState<BucketData[]>([]);
   const [fcastLon,     setFcastLon]     = useState<number | null>(null);
@@ -538,16 +555,20 @@ export default function LariantTerminal() {
   }, [fcastSeo, positions, log]);
 
   // ── USDC balance — Polygon RPC, auth-free, every 60 s ────────────────────
+  // Stored in its own state so an RPC failure never touches PNL or positions.
   useEffect(() => {
-    if (!walletAddr || walletAddr.length !== 42) return;
+    if (!walletAddr || walletAddr.length < 10) return;
+    let cancelled = false;
     const run = async () => {
       const usdc = await fetchUsdcBalance(walletAddr);
-      setPortfolio({ usdc });
-      log(`RPC: USDC.e on-chain = ${fmt(usdc)}`);
+      if (!cancelled) {
+        setUsdcBalance(usdc);
+        log(`RPC: USDC.e on-chain = ${fmt(usdc)}`);
+      }
     };
     run();
     const iv = setInterval(run, 60_000);
-    return () => clearInterval(iv);
+    return () => { cancelled = true; clearInterval(iv); };
   }, [walletAddr, log]);
 
   // ── Positions (every 30 s) ─────────────────────────────────────────────────
@@ -605,15 +626,28 @@ export default function LariantTerminal() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const raw = await r.json().catch(() => null);
         if (cancelled) return;
-        const activities: any[] = Array.isArray(raw)
+        const allActivities: any[] = Array.isArray(raw)
           ? raw
           : Array.isArray(raw?.data) ? raw.data : [];
+
+        // ── Clean-Slate filter: keep only activity on/after PNL_CUTOFF_TIMESTAMP ──
+        const activities = allActivities.filter((tx: any) => {
+          try {
+            const ts = tx.timestamp ?? tx.createdAt ?? tx.created_at ?? null;
+            if (ts === null) return false;
+            const ms = typeof ts === 'string'
+              ? new Date(ts).getTime()
+              : Number(ts) * (String(ts).length <= 10 ? 1000 : 1); // unix-s vs unix-ms
+            return isFinite(ms) && ms >= PNL_CUTOFF_TIMESTAMP;
+          } catch { return false; }
+        });
+
         // Run math engine — safe: returns [] on any internal error
         let trades: TradeRecord[] = [];
         try { trades = computeTradesFromActivity(activities); } catch { /* safe fallback */ }
         setTradePnls(trades);
         setPnlFetched(true);
-        log(`PNL: ${activities.length} activities → ${trades.length} closed trades`);
+        log(`PNL: ${allActivities.length} total, ${activities.length} post-cutoff → ${trades.length} closed trades`);
       } catch (err: any) {
         if (cancelled) return;
         log(`ERR: Activity fetch failed — ${err?.message ?? 'unknown'}`);
@@ -642,9 +676,10 @@ export default function LariantTerminal() {
           </button>
         </section>
       ) : (() => {
-        // Derive accounting figures from live state — no extra fetch needed
+        // Derive accounting figures from live state — no extra fetch needed.
+        // Total Value = Active Positions Value + USDC.e (Liquid) from Polygon RPC.
         const posValue = positions.reduce((s, p) => s + p.currentValue, 0);
-        const usdc     = portfolio?.usdc ?? null;
+        const usdc     = usdcBalance;                              // decoupled state
         const total    = usdc !== null ? usdc + posValue : null;
         return (
           <section className="border border-[#262626] bg-[#050505] p-4 space-y-3">
