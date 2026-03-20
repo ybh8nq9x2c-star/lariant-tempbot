@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ComposedChart, Bar, Area, Cell,
+  ComposedChart, BarChart, Bar, Area, Cell,
   XAxis, YAxis, ReferenceLine, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
@@ -27,18 +27,13 @@ interface BucketData {
   hasLiveData: boolean;
 }
 
-interface OrderEntry {
-  price: number;
-  size: number;
+interface TradeRecord {
+  market: string;
+  pnl: number;
+  isWin: boolean;
 }
 
-interface OrderBookState {
-  bids: OrderEntry[];
-  asks: OrderEntry[];
-  lastUpdated: Date | null;
-}
-
-type ActiveTab = 'terminal' | 'orderbook' | 'positions' | 'settings';
+type ActiveTab = 'terminal' | 'pnl' | 'positions' | 'settings';
 
 // ============================================================================
 // Constants
@@ -49,7 +44,6 @@ const NEUTRAL_FALLBACK = 0.15;
 const EV_THRESHOLD    = 0.05;
 const DUST_THRESHOLD  = 0.10;
 const LS_WALLET_KEY   = 'lariant_wallet';
-const LS_TOKEN_KEY    = 'lariant_token_id';
 const DEFAULT_WALLET  = '0x3a6Fe25c5320dC81F35F0f4e6bE8bDc76BC5e1c7';
 
 // ============================================================================
@@ -281,6 +275,108 @@ async function fetchUsdcBalance(walletAddress: string): Promise<number> {
 }
 
 // ============================================================================
+// PNL Math Engine — shadow accounting from raw activity feed
+// Groups trades by asset_id, tracks cost basis, emits realized PnL records
+// when shares exit (SELL / REDEEM / resolution).
+// ============================================================================
+function computeTradesFromActivity(activities: any[]): TradeRecord[] {
+  interface Bucket { netCost: number; sharesHeld: number; market: string; }
+  const groups = new Map<string, Bucket>();
+
+  // Chronological order — oldest first
+  const sorted = [...activities].sort((a, b) => {
+    const ta = a.timestamp ?? a.createdAt ?? 0;
+    const tb = b.timestamp ?? b.createdAt ?? 0;
+    return (typeof ta === 'string' ? new Date(ta).getTime() : ta) -
+           (typeof tb === 'string' ? new Date(tb).getTime() : tb);
+  });
+
+  const trades: TradeRecord[] = [];
+
+  for (const act of sorted) {
+    const assetId = act.asset_id ?? act.token_id ?? act.conditionId ?? '';
+    if (!assetId) continue;
+
+    const type    = (act.type ?? '').toUpperCase();
+    // dollar amount of transaction; fallback: shares × price
+    const amount  = parseFloat(act.amount ?? 0);
+    const shares  = parseFloat(act.shares ?? act.size ?? 0);
+    const market  = act.question ?? act.market ?? act.title ?? 'Unknown Market';
+
+    if (!groups.has(assetId)) groups.set(assetId, { netCost: 0, sharesHeld: 0, market });
+    const g = groups.get(assetId)!;
+
+    if (type === 'BUY' || type === 'PURCHASE') {
+      // Accumulate cost basis
+      g.netCost    += amount;
+      g.sharesHeld += shares;
+    } else if (type === 'SELL' || type === 'REDEEM' || type === 'CLAIM') {
+      if (g.sharesHeld > 0 && shares > 0) {
+        // Pro-rata cost basis for exited shares
+        const avgCostPerShare = g.netCost / g.sharesHeld;
+        const costBasis       = avgCostPerShare * shares;
+        const realized        = amount - costBasis;
+        trades.push({ market: g.market || market, pnl: realized, isWin: realized > 0 });
+        // Reduce open position
+        const remaining  = Math.max(0, g.sharesHeld - shares);
+        g.netCost        = remaining * avgCostPerShare;
+        g.sharesHeld     = remaining;
+      }
+    }
+  }
+
+  return trades;
+}
+
+// ============================================================================
+// PnlBarTooltip — module-level (no re-mount on clock tick)
+// ============================================================================
+const PnlBarTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const val: number = payload[0]?.value ?? 0;
+  return (
+    <div style={{ background: '#191919', border: '1px solid #484848', padding: '6px 10px', fontFamily: 'monospace', fontSize: '10px', lineHeight: 1.6, pointerEvents: 'none' }}>
+      <div style={{ color: '#ababab', marginBottom: 2 }}>{label}</div>
+      <div style={{ color: val >= 0 ? '#9fff88' : '#ff706f' }}>
+        PnL: {val >= 0 ? '+' : ''}{val.toFixed(4)}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// PnlChart — MUST live at module level (same reason as InferenceChart:
+// clock tick re-renders would unmount/remount and thrash the Recharts DOM).
+// ============================================================================
+function PnlChart({ trades }: { trades: TradeRecord[] }) {
+  const last20 = trades.slice(-20);
+  const data   = last20.map((t, i) => ({ name: `T${trades.length - last20.length + i + 1}`, pnl: parseFloat(t.pnl.toFixed(4)), isWin: t.isWin }));
+  return (
+    <div style={{ height: 140, overflow: 'hidden' }}>
+      {data.length === 0 ? (
+        <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9fff88', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.4 }}>
+          No closed trades yet
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={140}>
+          <BarChart data={data} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
+            <XAxis dataKey="name" axisLine={false} tickLine={false} interval="preserveStartEnd" tickMargin={5} tick={{ fill: '#ababab', fontSize: 8, fontFamily: 'monospace' }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fill: '#ababab', fontSize: 8, fontFamily: 'monospace' }} />
+            <ReferenceLine y={0} stroke="#383838" strokeWidth={1} />
+            <Tooltip content={<PnlBarTooltip />} cursor={{ fill: '#1a1a1a' }} />
+            <Bar dataKey="pnl" isAnimationActive={false} radius={[2, 2, 0, 0]}>
+              {data.map((entry, idx) => (
+                <Cell key={`cell-${idx}`} fill={entry.isWin ? '#9fff88' : '#ff706f'} fillOpacity={0.85} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 export default function LariantTerminal() {
@@ -295,9 +391,9 @@ export default function LariantTerminal() {
   const [mapSeo,       setMapSeo]       = useState<BucketData[]>([]);
   const [fcastLon,     setFcastLon]     = useState<number | null>(null);
   const [fcastSeo,     setFcastSeo]     = useState<number | null>(null);
-  const [orderbook,    setOrderbook]    = useState<OrderBookState>({ bids: [], asks: [], lastUpdated: null });
-  const [tokenId,      setTokenId]      = useState('');
-  const [tokenInput,   setTokenInput]   = useState('');
+  const [tradePnls,    setTradePnls]    = useState<TradeRecord[]>([]);
+  const [loadingPnl,   setLoadingPnl]   = useState(false);
+  const [pnlFetched,   setPnlFetched]   = useState(false);
   const [loadingPos,   setLoadingPos]   = useState(false);
   const [clock,        setClock]        = useState('');
   const [logs,         setLogs]         = useState<string[]>([
@@ -314,9 +410,7 @@ export default function LariantTerminal() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const w = localStorage.getItem(LS_WALLET_KEY) || DEFAULT_WALLET;
-    const t = localStorage.getItem(LS_TOKEN_KEY)  || '';
-    setWalletAddr(w);  setWalletInput(w);
-    if (t) { setTokenId(t); setTokenInput(t); }
+    setWalletAddr(w); setWalletInput(w);
   }, []);
 
   // ── Clock ─────────────────────────────────────────────────────────────────
@@ -415,14 +509,6 @@ export default function LariantTerminal() {
             };
           });
         setPositions(mapped);
-        // Auto-detect CLOB token ID from first weather position
-        if (!tokenId) {
-          const wp = mapped.find((p: Position) => {
-            const t = p.title.toLowerCase();
-            return t.includes('temp') || t.includes('weather') || t.includes('°');
-          });
-          if (wp) { setTokenId(wp.id); setTokenInput(wp.id); }
-        }
         log(`RECV: ${mapped.length} positions (dust filtered)`);
       } catch {
         log('ERR: Positions fetch failed');
@@ -435,52 +521,28 @@ export default function LariantTerminal() {
     return () => clearInterval(iv);
   }, [walletAddr, log]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Orderbook CLOB (every 15 s — respectful of rate limits) ─────────────
+  // ── PNL Activity — fetch on tab activation, cache until wallet changes ────
   useEffect(() => {
-    // Require a real Polymarket token ID: hex starting with 0x, at least 20 chars
-    const tid = tokenId.trim();
-    if (!tid || tid.length < 20) return;
-
-    // Declare iv BEFORE run so the async body can call clearInterval(iv) on fatal errors
-    let iv: ReturnType<typeof setInterval>;
-
-    const run = async () => {
+    if (activeTab !== 'pnl' || pnlFetched || !walletAddr) return;
+    (async () => {
+      setLoadingPnl(true);
       try {
-        const r = await fetch(`https://clob.polymarket.com/book?token_id=${tid}`);
-        if (!r.ok) {
-          if (r.status === 404) {
-            // Token not found — this token will never be valid. Kill the loop
-            // and clear the stored token so the user knows to re-configure.
-            clearInterval(iv);
-            log('WARN: CLOB 404 — token invalid, polling stopped');
-            setTokenId('');
-            setTokenInput('');
-            if (typeof window !== 'undefined') localStorage.removeItem(LS_TOKEN_KEY);
-          }
-          // 429 = rate limited; other errors: back off silently, interval continues
-          return;
-        }
-        const d = await r.json();
-        const bids: OrderEntry[] = (Array.isArray(d?.bids) ? d.bids : [])
-          .map((b: any) => ({ price: parseFloat(b?.price ?? 0), size: parseFloat(b?.size ?? 0) }))
-          .filter((e: OrderEntry) => e.price > 0 && e.size > 0)
-          .sort((a: OrderEntry, b: OrderEntry) => b.price - a.price)
-          .slice(0, 10);
-        const asks: OrderEntry[] = (Array.isArray(d?.asks) ? d.asks : [])
-          .map((a: any) => ({ price: parseFloat(a?.price ?? 0), size: parseFloat(a?.size ?? 0) }))
-          .filter((e: OrderEntry) => e.price > 0 && e.size > 0)
-          .sort((a: OrderEntry, b: OrderEntry) => a.price - b.price)
-          .slice(0, 10);
-        setOrderbook({ bids, asks, lastUpdated: new Date() });
+        const r = await fetch(`https://data-api.polymarket.com/activity?user=${walletAddr}&limit=500`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const raw = await r.json();
+        const activities: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
+        const trades = computeTradesFromActivity(activities);
+        setTradePnls(trades);
+        setPnlFetched(true);
+        log(`PNL: ${activities.length} activities → ${trades.length} closed trades`);
       } catch {
-        // Network error — silent, interval continues, will retry next tick
+        log('ERR: Activity fetch failed');
+        setPnlFetched(true); // prevent infinite retry on permanent failure
+      } finally {
+        setLoadingPnl(false);
       }
-    };
-
-    run();
-    iv = setInterval(run, 15_000);
-    return () => clearInterval(iv);
-  }, [tokenId, log]); // eslint-disable-line react-hooks/exhaustive-deps
+    })();
+  }, [activeTab, walletAddr, pnlFetched, log]);
 
   // ============================================================================
   // Tab: TERMINAL
@@ -574,100 +636,143 @@ export default function LariantTerminal() {
   );
 
   // ============================================================================
-  // Tab: ORDERBOOK
+  // Tab: PNL & METRICS
   // ============================================================================
-  const TabOrderbook = () => {
-    const { bids, asks, lastUpdated } = orderbook;
-    const maxSz   = Math.max(...bids.map(b => b.size), ...asks.map(a => a.size), 1);
-    const bestBid = bids[0]?.price ?? 0;
-    const bestAsk = asks[0]?.price ?? 0;
-    const spreadV = bestBid > 0 && bestAsk > 0 ? bestAsk - bestBid : null;
+  const TabPnl = () => {
+    const total    = tradePnls.length;
+    const wins     = tradePnls.filter(t => t.isWin).length;
+    const losses   = tradePnls.filter(t => !t.isWin).length;
+    const totalPnl = tradePnls.reduce((s, t) => s + t.pnl, 0);
+    const sumWins  = tradePnls.filter(t => t.isWin).reduce((s, t) => s + t.pnl, 0);
+    const sumLoss  = tradePnls.filter(t => !t.isWin).reduce((s, t) => s + Math.abs(t.pnl), 0);
+    const winRate  = total > 0 ? (wins / total) * 100 : 0;
+    const profFact = sumLoss > 0 ? sumWins / sumLoss : (sumWins > 0 ? Infinity : 0);
+    const mean     = total > 0 ? totalPnl / total : 0;
+    const variance = total > 1 ? tradePnls.reduce((s, t) => s + Math.pow(t.pnl - mean, 2), 0) / (total - 1) : 0;
+    const sharpe   = variance > 0 ? mean / Math.sqrt(variance) : 0;
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex justify-between items-center px-1">
           <span className="uppercase tracking-widest text-[10px]" style={{ color: '#9fff88' }}>
-            Live CLOB — Orderbook
+            PnL &amp; Metrics
           </span>
-          {lastUpdated && (
-            <span className="text-[8px] opacity-40">{lastUpdated.toLocaleTimeString()}</span>
-          )}
+          <div className="flex items-center gap-2">
+            {loadingPnl && <span className="text-[8px] animate-pulse" style={{ color: '#9fff88' }}>LOADING…</span>}
+            {pnlFetched && !loadingPnl && (
+              <span className="text-[8px] opacity-40">{total} CLOSED TRADES</span>
+            )}
+          </div>
         </div>
 
-        {!tokenId ? (
+        {!walletAddr ? (
           <div className="border border-[#262626] p-6 bg-[#050505] text-center space-y-3">
-            <p className="opacity-40 uppercase tracking-widest text-[10px]">No Token ID configured</p>
+            <p className="opacity-40 uppercase tracking-widest text-[10px]">No Wallet Configured</p>
             <button onClick={() => setActiveTab('settings')}
               className="text-[10px] uppercase tracking-widest border px-4 py-2"
               style={{ color: '#9fff88', borderColor: '#9fff88' }}>
-              → Configure in Settings
+              → Open Settings
             </button>
           </div>
-        ) : bids.length === 0 && asks.length === 0 ? (
-          <div className="border border-[#262626] p-6 bg-[#050505] text-center">
+        ) : loadingPnl && !pnlFetched ? (
+          <div className="border border-[#262626] p-8 bg-[#050505] text-center">
             <span className="text-[10px] uppercase tracking-widest animate-pulse" style={{ color: '#9fff88' }}>
-              Fetching CLOB data…
+              Computing shadow P&amp;L…
             </span>
           </div>
         ) : (
-          <div className="border border-[#262626] bg-[#050505] overflow-hidden">
-            {/* Spread bar */}
-            <div className="flex justify-between items-center px-3 py-2 border-b border-[#1a1a1a] bg-[#0a0a0a]">
-              <span className="text-[9px] opacity-40 uppercase">Spread</span>
-              <span className="text-[11px] font-bold text-white font-mono">
-                {spreadV !== null ? spreadV.toFixed(4) : '—'}
-              </span>
-              <span className="text-[9px] opacity-40 uppercase">
-                {spreadV !== null && bestAsk > 0 ? `${((spreadV / bestAsk) * 100).toFixed(2)}%` : ''}
-              </span>
-            </div>
-            {/* Col headers */}
-            <div className="grid grid-cols-3 px-3 py-1 border-b border-[#1a1a1a]">
-              <span className="text-[8px] uppercase opacity-30">Price</span>
-              <span className="text-[8px] uppercase opacity-30 text-center">Depth</span>
-              <span className="text-[8px] uppercase opacity-30 text-right">Size</span>
-            </div>
-            {/* Asks — reversed so tightest ask is at centre */}
-            {[...asks].reverse().map((a, i) => (
-              <div key={`ask-${i}`} className="relative grid grid-cols-3 px-3 py-[3px] items-center">
-                <div className="absolute left-0 top-0 bottom-0 bg-[#ff706f] opacity-[0.07]"
-                  style={{ width: `${(a.size / maxSz) * 100}%` }} />
-                <span className="text-[10px] font-mono relative z-10" style={{ color: '#ff706f' }}>
-                  {a.price.toFixed(4)}
-                </span>
-                <div className="flex justify-center relative z-10">
-                  <div className="h-[2px] bg-[#ff706f] opacity-50 rounded"
-                    style={{ width: `${(a.size / maxSz) * 60}%` }} />
+          <>
+            {/* KPI Grid — 2×3 */}
+            <section className="border border-[#262626] bg-[#050505] p-4">
+              <header className="flex justify-between items-center border-b border-[#1a1a1a] pb-2 mb-3">
+                <span className="uppercase tracking-widest opacity-50 text-[9px]">Realized Performance</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#9fff88] animate-pulse" />
+                  <span className="text-[8px]" style={{ color: '#9fff88' }}>LOCAL MATH ENGINE</span>
                 </div>
-                <span className="text-[9px] font-mono opacity-60 text-right relative z-10">
-                  {a.size.toFixed(0)}
-                </span>
-              </div>
-            ))}
-            {/* Mid-price */}
-            <div className="flex justify-center items-center py-1 border-y border-[#262626] bg-[#080808]">
-              <span className="text-[9px] font-mono text-white opacity-50">
-                {bestBid > 0 && bestAsk > 0 ? `MID  ${((bestBid + bestAsk) / 2).toFixed(4)}` : '—'}
-              </span>
-            </div>
-            {/* Bids */}
-            {bids.map((b, i) => (
-              <div key={`bid-${i}`} className="relative grid grid-cols-3 px-3 py-[3px] items-center">
-                <div className="absolute left-0 top-0 bottom-0 bg-[#9fff88] opacity-[0.06]"
-                  style={{ width: `${(b.size / maxSz) * 100}%` }} />
-                <span className="text-[10px] font-mono relative z-10" style={{ color: '#9fff88' }}>
-                  {b.price.toFixed(4)}
-                </span>
-                <div className="flex justify-center relative z-10">
-                  <div className="h-[2px] bg-[#9fff88] opacity-50 rounded"
-                    style={{ width: `${(b.size / maxSz) * 60}%` }} />
+              </header>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {/* Realized PnL */}
+                <div>
+                  <span className="block text-[8px] uppercase opacity-40 mb-0.5">Realized PnL</span>
+                  <span className="text-xl font-bold" style={{ color: total === 0 ? '#ababab' : totalPnl >= 0 ? '#9fff88' : '#ff706f' }}>
+                    {total === 0 ? '—' : `${totalPnl >= 0 ? '+' : ''}${fmt(totalPnl)}`}
+                  </span>
                 </div>
-                <span className="text-[9px] font-mono opacity-60 text-right relative z-10">
-                  {b.size.toFixed(0)}
-                </span>
+                {/* Win Rate */}
+                <div>
+                  <span className="block text-[8px] uppercase opacity-40 mb-0.5">Win Rate</span>
+                  <span className="text-xl font-bold" style={{ color: total === 0 ? '#ababab' : winRate >= 50 ? '#9fff88' : '#ff706f' }}>
+                    {total === 0 ? '—' : `${winRate.toFixed(1)}%`}
+                  </span>
+                </div>
+                {/* Profit Factor */}
+                <div>
+                  <span className="block text-[8px] uppercase opacity-40 mb-0.5">Profit Factor</span>
+                  <span className="text-sm font-bold" style={{ color: total === 0 ? '#ababab' : profFact >= 1 ? '#9fff88' : '#ff706f' }}>
+                    {total === 0 ? '—' : profFact === Infinity ? '∞' : profFact.toFixed(2)}
+                  </span>
+                </div>
+                {/* Sharpe */}
+                <div>
+                  <span className="block text-[8px] uppercase opacity-40 mb-0.5">Sharpe Ratio</span>
+                  <span className="text-sm font-bold" style={{ color: total < 2 ? '#ababab' : sharpe >= 0 ? '#9fff88' : '#ff706f' }}>
+                    {total < 2 ? '—' : sharpe.toFixed(3)}
+                  </span>
+                </div>
+                {/* Total Trades */}
+                <div>
+                  <span className="block text-[8px] uppercase opacity-40 mb-0.5">Total Trades</span>
+                  <span className="text-sm" style={{ color: '#ababab' }}>{total}</span>
+                </div>
+                {/* W / L */}
+                <div>
+                  <span className="block text-[8px] uppercase opacity-40 mb-0.5">W / L</span>
+                  <span className="text-sm font-mono">
+                    <span style={{ color: '#9fff88' }}>{wins}</span>
+                    <span className="opacity-30"> / </span>
+                    <span style={{ color: '#ff706f' }}>{losses}</span>
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
+            </section>
+
+            {/* PnL bar chart — last 20 closed trades */}
+            <section className="border border-[#262626] bg-[#020202] overflow-hidden p-3">
+              <header className="text-[8px] uppercase tracking-widest opacity-40 mb-2 border-b border-[#1a1a1a] pb-1 flex justify-between">
+                <span>Last {Math.min(total, 20)} Closed Trades</span>
+                <span className="font-mono" style={{ color: totalPnl >= 0 ? '#9fff88' : '#ff706f' }}>
+                  {total > 0 ? `${totalPnl >= 0 ? '+' : ''}${fmt(totalPnl)}` : ''}
+                </span>
+              </header>
+              <PnlChart trades={tradePnls} />
+            </section>
+
+            {/* Trade log — newest first, max 15 rows */}
+            {total > 0 && (
+              <section className="border border-[#262626] bg-[#050505] divide-y divide-[#111]">
+                <div className="grid grid-cols-[1fr_auto] px-3 py-1 border-b border-[#1a1a1a]">
+                  <span className="text-[8px] uppercase opacity-30">Market</span>
+                  <span className="text-[8px] uppercase opacity-30">Realized</span>
+                </div>
+                {[...tradePnls].reverse().slice(0, 15).map((t, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2 items-center">
+                    <span className="text-[9px] opacity-50 truncate">{t.market}</span>
+                    <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: t.isWin ? '#9fff88' : '#ff706f' }}>
+                      {t.pnl >= 0 ? '+' : ''}{fmt(t.pnl)}
+                    </span>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Refresh button — re-fetch on demand */}
+            <button onClick={() => { setPnlFetched(false); setTradePnls([]); }}
+              className="w-full py-2 text-[10px] uppercase tracking-widest border"
+              style={{ color: '#9fff88', borderColor: '#262626' }}>
+              ↺ Refresh Activity
+            </button>
+          </>
         )}
       </div>
     );
@@ -774,34 +879,12 @@ export default function LariantTerminal() {
           setWalletAddr(a);
           setWalletInput(a);
           if (typeof window !== 'undefined') localStorage.setItem(LS_WALLET_KEY, a);
+          setTradePnls([]); setPnlFetched(false); // reset PNL cache for new wallet
           log(`CFG: Wallet → ${a.slice(0,6)}…${a.slice(-4)}`);
         }}
           className="w-full py-2 text-[10px] uppercase tracking-widest font-bold border"
           style={{ color: '#9fff88', borderColor: '#9fff88' }}>
           Save Wallet
-        </button>
-      </div>
-
-      {/* CLOB Token */}
-      <div className="border border-[#262626] bg-[#050505] p-4 space-y-3">
-        <header className="border-b border-[#1a1a1a] pb-2">
-          <span className="uppercase tracking-widest text-[9px] opacity-50">CLOB Market Token ID</span>
-        </header>
-        <label className="block text-[8px] uppercase opacity-40">
-          Token ID — auto-detected from positions, or enter manually
-        </label>
-        <input type="text" value={tokenInput} onChange={e => setTokenInput(e.target.value)}
-          placeholder="Token ID…"
-          className="w-full bg-[#0a0a0a] border border-[#262626] text-[10px] font-mono px-3 py-2 text-white" />
-        <button onClick={() => {
-          const id = tokenInput.trim();
-          setTokenId(id);
-          if (typeof window !== 'undefined') localStorage.setItem(LS_TOKEN_KEY, id);
-          log(`CFG: Token → ${id.slice(0,10)}…`);
-        }}
-          className="w-full py-2 text-[10px] uppercase tracking-widest font-bold border"
-          style={{ color: '#9fff88', borderColor: '#9fff88' }}>
-          Save Token ID
         </button>
       </div>
 
@@ -815,8 +898,7 @@ export default function LariantTerminal() {
           ['LON Forecast', fcastLon !== null ? `${fcastLon.toFixed(1)}°C` : 'PENDING',               fcastLon !== null],
           ['SEO Forecast', fcastSeo !== null ? `${fcastSeo.toFixed(1)}°C` : 'PENDING',               fcastSeo !== null],
           ['Positions',    `${positions.length} active`,                                               positions.length > 0],
-          ['CLOB Token',   tokenId ? `${tokenId.slice(0,10)}…` : 'NOT SET',                           !!tokenId],
-          ['Orderbook',    orderbook.bids.length > 0 ? `${orderbook.bids.length}b/${orderbook.asks.length}a` : 'NO DATA', orderbook.bids.length > 0],
+          ['Activity',     pnlFetched ? `${tradePnls.length} trades` : 'NOT LOADED',                  pnlFetched],
         ] as [string, string, boolean][]).map(([lbl, val, ok]) => (
           <div key={lbl} className="flex justify-between items-center text-[10px]">
             <span className="opacity-40 uppercase">{lbl}</span>
@@ -828,12 +910,9 @@ export default function LariantTerminal() {
       {/* Clear data */}
       <div className="border border-[#262626] bg-[#050505] p-4">
         <button onClick={() => {
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem(LS_WALLET_KEY);
-            localStorage.removeItem(LS_TOKEN_KEY);
-          }
+          if (typeof window !== 'undefined') localStorage.removeItem(LS_WALLET_KEY);
           setWalletAddr(DEFAULT_WALLET); setWalletInput(DEFAULT_WALLET);
-          setTokenId('');                setTokenInput('');
+          setTradePnls([]); setPnlFetched(false);
           log('CFG: Credentials reset to defaults');
         }}
           className="w-full py-2 text-[10px] uppercase tracking-widest border"
@@ -850,8 +929,8 @@ export default function LariantTerminal() {
   const NAV: { tab: ActiveTab; label: string; path: string }[] = [
     { tab: 'terminal',  label: 'TERMINAL',
       path: 'M4 4h7v7H4V4zm0 12h7v7H4v-7zm12-12h7v7h-7V4zm0 12h7v7h-7v-7z' },
-    { tab: 'orderbook', label: 'ORDERBOOK',
-      path: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z' },
+    { tab: 'pnl',       label: 'PNL',
+      path: 'M4 9h4v11H4V9zm6-5h4v16h-4V4zm6 8h4v8h-4v-8z' },
     { tab: 'positions', label: 'POSITIONS',
       path: 'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z' },
     { tab: 'settings',  label: 'SETTINGS',
@@ -887,7 +966,7 @@ export default function LariantTerminal() {
       {/* ── Main scrollable area ────────────────────────────────────────────── */}
       <main className="p-3 pb-24 space-y-4 max-w-3xl mx-auto">
         {activeTab === 'terminal'  && <TabTerminal />}
-        {activeTab === 'orderbook' && <TabOrderbook />}
+        {activeTab === 'pnl'       && <TabPnl />}
         {activeTab === 'positions' && <TabPositions />}
         {activeTab === 'settings'  && <TabSettings />}
       </main>
