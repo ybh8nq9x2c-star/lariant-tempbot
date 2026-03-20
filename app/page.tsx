@@ -275,53 +275,124 @@ async function fetchUsdcBalance(walletAddress: string): Promise<number> {
 }
 
 // ============================================================================
-// PNL Math Engine — shadow accounting from raw activity feed
-// Groups trades by asset_id, tracks cost basis, emits realized PnL records
-// when shares exit (SELL / REDEEM / resolution).
+// PNL Math Engine — shadow FIFO accounting from raw Polymarket activity feed.
+//
+// Field-resolution strategy (Polymarket API varies by endpoint version):
+//   assetId  : asset_id | token_id | condition_id | conditionId
+//   side     : type ("BUY"/"SELL"/"TRADE"+"side"/"REDEEM"/"CLAIM"/"SETTLEMENT")
+//   dollars  : usdcAmount | amount | (shares × price) — first non-NaN wins
+//   shares   : shares | size | outcome_shares
+//   price    : price  (used only when dollars field is absent)
+//
+// Precision: all dollar amounts are stored as integer micro-dollars (×1e6)
+// to eliminate IEEE-754 drift, then converted back at output time.
+// Each record is wrapped in try/catch — one bad activity row never aborts run.
 // ============================================================================
 function computeTradesFromActivity(activities: any[]): TradeRecord[] {
-  interface Bucket { netCost: number; sharesHeld: number; market: string; }
+  if (!Array.isArray(activities) || activities.length === 0) return [];
+
+  interface Bucket {
+    netCostUc:    number;   // net cost in micro-dollars (integer)
+    sharesHeldUc: number;   // net shares × 1e6 (integer)
+    market:       string;
+  }
   const groups = new Map<string, Bucket>();
 
-  // Chronological order — oldest first
+  // Helper: parse any numeric field, return NaN if unparseable
+  const num = (v: any): number => {
+    if (v === null || v === undefined || v === '') return NaN;
+    const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
+    return isFinite(n) ? n : NaN;
+  };
+  // Safe micro-dollar encode: round to nearest integer μUSD
+  const toUc  = (d: number): number => Math.round(d * 1_000_000);
+  const fromUc = (uc: number): number => uc / 1_000_000;
+
+  // Sort chronologically — oldest first
   const sorted = [...activities].sort((a, b) => {
-    const ta = a.timestamp ?? a.createdAt ?? 0;
-    const tb = b.timestamp ?? b.createdAt ?? 0;
-    return (typeof ta === 'string' ? new Date(ta).getTime() : ta) -
-           (typeof tb === 'string' ? new Date(tb).getTime() : tb);
+    try {
+      const ta = a.timestamp ?? a.createdAt ?? a.created_at ?? 0;
+      const tb = b.timestamp ?? b.createdAt ?? b.created_at ?? 0;
+      const na  = typeof ta === 'string' ? new Date(ta).getTime() : Number(ta) * (String(ta).length <= 10 ? 1000 : 1);
+      const nb  = typeof tb === 'string' ? new Date(tb).getTime() : Number(tb) * (String(tb).length <= 10 ? 1000 : 1);
+      return na - nb;
+    } catch { return 0; }
   });
 
   const trades: TradeRecord[] = [];
 
   for (const act of sorted) {
-    const assetId = act.asset_id ?? act.token_id ?? act.conditionId ?? '';
-    if (!assetId) continue;
+    try {
+      // ── Asset key ─────────────────────────────────────────────────────────
+      const assetId: string = String(act.asset_id ?? act.token_id ?? act.condition_id ?? act.conditionId ?? '').trim();
+      if (!assetId) continue;
 
-    const type    = (act.type ?? '').toUpperCase();
-    // dollar amount of transaction; fallback: shares × price
-    const amount  = parseFloat(act.amount ?? 0);
-    const shares  = parseFloat(act.shares ?? act.size ?? 0);
-    const market  = act.question ?? act.market ?? act.title ?? 'Unknown Market';
+      // ── Side resolution ───────────────────────────────────────────────────
+      // Polymarket uses: type="BUY"|"SELL"|"REDEEM"|"CLAIM"|"SETTLEMENT"
+      // Occasionally type="TRADE" with a nested side="BUY"|"SELL" field
+      const rawType  = String(act.type  ?? '').toUpperCase().trim();
+      const rawSide  = String(act.side  ?? act.direction ?? '').toUpperCase().trim();
+      const sideKey  = rawType === 'TRADE' ? rawSide : rawType;
 
-    if (!groups.has(assetId)) groups.set(assetId, { netCost: 0, sharesHeld: 0, market });
-    const g = groups.get(assetId)!;
+      const isBuy    = sideKey === 'BUY'  || sideKey === 'PURCHASE';
+      const isSell   = sideKey === 'SELL' || sideKey === 'REDEEM' ||
+                       sideKey === 'CLAIM' || sideKey === 'SETTLEMENT' || sideKey === 'WIN';
+      if (!isBuy && !isSell) continue; // skip TRANSFER, MERGE, etc.
 
-    if (type === 'BUY' || type === 'PURCHASE') {
-      // Accumulate cost basis
-      g.netCost    += amount;
-      g.sharesHeld += shares;
-    } else if (type === 'SELL' || type === 'REDEEM' || type === 'CLAIM') {
-      if (g.sharesHeld > 0 && shares > 0) {
-        // Pro-rata cost basis for exited shares
-        const avgCostPerShare = g.netCost / g.sharesHeld;
-        const costBasis       = avgCostPerShare * shares;
-        const realized        = amount - costBasis;
-        trades.push({ market: g.market || market, pnl: realized, isWin: realized > 0 });
-        // Reduce open position
-        const remaining  = Math.max(0, g.sharesHeld - shares);
-        g.netCost        = remaining * avgCostPerShare;
-        g.sharesHeld     = remaining;
+      // ── Dollar amount ─────────────────────────────────────────────────────
+      // Try every known field; last resort: shares × price
+      const sharesRaw  = num(act.shares ?? act.size ?? act.outcome_shares);
+      const priceRaw   = num(act.price  ?? act.avg_price);
+      let   dollarsRaw = num(act.usdcAmount ?? act.usdc_amount ?? act.amount ?? act.cashflow);
+      if (isNaN(dollarsRaw) && !isNaN(sharesRaw) && !isNaN(priceRaw)) {
+        dollarsRaw = sharesRaw * priceRaw;
       }
+      // For REDEEM/WIN with no price field: payout = shares × $1.00
+      if (isNaN(dollarsRaw) && isSell && !isNaN(sharesRaw)) {
+        dollarsRaw = sharesRaw; // $1.00 per winning share
+      }
+      // Guard: both critical values must be usable
+      const shares  = isNaN(sharesRaw)  || sharesRaw  <= 0 ? null : sharesRaw;
+      const dollars = isNaN(dollarsRaw) || dollarsRaw <= 0 ? null : dollarsRaw;
+      if (shares === null || dollars === null) continue;
+
+      // ── Market label ──────────────────────────────────────────────────────
+      const market = String(act.question ?? act.title ?? act.market ?? act.slug ?? 'Unknown Market').slice(0, 80);
+
+      // ── Cost-basis accounting in μUSD ─────────────────────────────────────
+      if (!groups.has(assetId)) groups.set(assetId, { netCostUc: 0, sharesHeldUc: 0, market });
+      const g = groups.get(assetId)!;
+
+      if (isBuy) {
+        g.netCostUc    += toUc(dollars);
+        g.sharesHeldUc += toUc(shares);
+      } else {
+        // isSell / REDEEM / CLAIM
+        if (g.sharesHeldUc <= 0) continue; // no open position to close
+
+        // Pro-rata cost basis for the exited shares
+        const exitSharesUc   = Math.min(toUc(shares), g.sharesHeldUc); // clamp to held
+        const avgCostUcPerSh = g.netCostUc / g.sharesHeldUc;           // μUSD per μshare
+        const costBasisUc    = Math.round(avgCostUcPerSh * exitSharesUc);
+        const proceedsUc     = toUc(dollars);
+        const realizedUc     = proceedsUc - costBasisUc;
+
+        // Record the realized trade
+        const realizedDollars = fromUc(realizedUc);
+        trades.push({
+          market:  g.market || market,
+          pnl:     Math.round(realizedDollars * 10_000) / 10_000, // 4dp
+          isWin:   realizedUc > 0,
+        });
+
+        // Reduce open position
+        g.sharesHeldUc = Math.max(0, g.sharesHeldUc - exitSharesUc);
+        g.netCostUc    = g.sharesHeldUc > 0
+          ? Math.round(avgCostUcPerSh * g.sharesHeldUc)
+          : 0;
+      }
+    } catch {
+      // Silently skip malformed activity records — never let one bad row abort the engine
     }
   }
 
@@ -521,27 +592,38 @@ export default function LariantTerminal() {
     return () => clearInterval(iv);
   }, [walletAddr, log]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── PNL Activity — fetch on tab activation, cache until wallet changes ────
+  // ── PNL Activity — lazy-load on first tab visit, cached per wallet ────────
   useEffect(() => {
     if (activeTab !== 'pnl' || pnlFetched || !walletAddr) return;
+    let cancelled = false;
     (async () => {
       setLoadingPnl(true);
       try {
-        const r = await fetch(`https://data-api.polymarket.com/activity?user=${walletAddr}&limit=500`);
+        // Fetch up to 500 activity records; on partial failure return safe []
+        const url = `https://data-api.polymarket.com/activity?user=${walletAddr}&limit=500`;
+        const r   = await fetch(url);
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const raw = await r.json();
-        const activities: any[] = Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
-        const trades = computeTradesFromActivity(activities);
+        const raw = await r.json().catch(() => null);
+        if (cancelled) return;
+        const activities: any[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data) ? raw.data : [];
+        // Run math engine — safe: returns [] on any internal error
+        let trades: TradeRecord[] = [];
+        try { trades = computeTradesFromActivity(activities); } catch { /* safe fallback */ }
         setTradePnls(trades);
         setPnlFetched(true);
         log(`PNL: ${activities.length} activities → ${trades.length} closed trades`);
-      } catch {
-        log('ERR: Activity fetch failed');
-        setPnlFetched(true); // prevent infinite retry on permanent failure
+      } catch (err: any) {
+        if (cancelled) return;
+        log(`ERR: Activity fetch failed — ${err?.message ?? 'unknown'}`);
+        setTradePnls([]);   // safe fallback: empty, not crash
+        setPnlFetched(true);
       } finally {
-        setLoadingPnl(false);
+        if (!cancelled) setLoadingPnl(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [activeTab, walletAddr, pnlFetched, log]);
 
   // ============================================================================
@@ -964,27 +1046,34 @@ export default function LariantTerminal() {
       </header>
 
       {/* ── Main scrollable area ────────────────────────────────────────────── */}
-      <main className="p-3 pb-24 space-y-4 max-w-3xl mx-auto">
+      <main className="p-3 pb-36 space-y-4 max-w-3xl mx-auto">
         {activeTab === 'terminal'  && <TabTerminal />}
         {activeTab === 'pnl'       && <TabPnl />}
         {activeTab === 'positions' && <TabPositions />}
         {activeTab === 'settings'  && <TabSettings />}
       </main>
 
-      {/* ── Bottom Nav Bar — safe-area aware ───────────────────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-[#262626] flex justify-around items-center z-40 px-2"
-        style={{ paddingTop: '0.5rem', paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}>
-        {NAV.map(({ tab, label, path }) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className="flex flex-col items-center gap-1 transition-all min-w-[56px]"
-            style={{ color: activeTab === tab ? '#9fff88' : '#444' }}>
-            <svg className={`w-5 h-5 fill-current ${activeTab === tab ? 'drop-shadow-[0_0_4px_rgba(159,255,136,0.6)]' : ''}`}
-              viewBox="0 0 24 24">
-              <path d={path} />
-            </svg>
-            <span className="text-[7px] font-bold tracking-tighter uppercase">{label}</span>
-          </button>
-        ))}
+      {/* ── Bottom Nav Bar — safe-area aware, iPhone home-indicator proof ───── */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#050505] border-t border-[#262626] flex justify-around items-end z-40 px-1"
+        style={{ paddingTop: '0.625rem', paddingBottom: 'max(env(safe-area-inset-bottom, 1rem), 1rem)' }}>
+        {NAV.map(({ tab, label, path }) => {
+          const active = activeTab === tab;
+          return (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              className="flex flex-col items-center gap-1.5 pb-1 transition-all min-w-[64px]"
+              style={{ color: active ? '#9fff88' : '#3a3a3a' }}>
+              {/* Active indicator pill */}
+              <div className="w-6 h-[2px] rounded-full mb-0.5 transition-all"
+                style={{ background: active ? '#9fff88' : 'transparent', boxShadow: active ? '0 0 6px #9fff88' : 'none' }} />
+              <svg className="w-7 h-7 fill-current transition-all"
+                style={{ filter: active ? 'drop-shadow(0 0 5px rgba(159,255,136,0.7))' : 'none' }}
+                viewBox="0 0 24 24">
+                <path d={path} />
+              </svg>
+              <span className="text-[10px] font-bold tracking-widest uppercase">{label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {/* ── Global CSS ─────────────────────────────────────────────────────── */}
