@@ -244,6 +244,43 @@ const fmt = (val: number) =>
 const pct = (val: number) => `${val >= 0 ? '+' : ''}${val.toFixed(2)}%`;
 
 // ============================================================================
+// fetchUsdcBalance — reads USDC.e balance directly from Polygon via public RPC
+// No API key required. USDC.e contract: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+// balanceOf(address) selector: 0x70a08231, padded to 32 bytes
+// ============================================================================
+async function fetchUsdcBalance(walletAddress: string): Promise<number> {
+  if (!walletAddress || walletAddress.length !== 42) return 0;
+  // Strip 0x prefix and left-pad to 32 bytes for the ABI-encoded address param
+  const paddedAddr = walletAddress.slice(2).toLowerCase().padStart(64, '0');
+  const payload = {
+    jsonrpc: '2.0',
+    id:      1,
+    method:  'eth_call',
+    params:  [
+      {
+        to:   '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC.e on Polygon
+        data: '0x70a08231' + paddedAddr,                    // balanceOf(address)
+      },
+      'latest',
+    ],
+  };
+  try {
+    const r = await fetch('https://polygon-rpc.com', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    });
+    if (!r.ok) return 0;
+    const d = await r.json();
+    if (!d?.result || d.result === '0x') return 0;
+    // USDC.e has 6 decimals
+    return parseInt(d.result, 16) / 1_000_000;
+  } catch {
+    return 0;
+  }
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 export default function LariantTerminal() {
@@ -252,7 +289,8 @@ export default function LariantTerminal() {
   const [walletAddr,   setWalletAddr]   = useState(DEFAULT_WALLET);
   const [walletInput,  setWalletInput]  = useState(DEFAULT_WALLET);
   const [positions,    setPositions]    = useState<Position[]>([]);
-  const [portfolio,    setPortfolio]    = useState<{ usdc: number; total: number } | null>(null);
+  // usdc = on-chain USDC.e balance; posValue + total are derived in render from positions
+  const [portfolio,    setPortfolio]    = useState<{ usdc: number } | null>(null);
   const [mapLon,       setMapLon]       = useState<BucketData[]>([]);
   const [mapSeo,       setMapSeo]       = useState<BucketData[]>([]);
   const [fcastLon,     setFcastLon]     = useState<number | null>(null);
@@ -334,21 +372,13 @@ export default function LariantTerminal() {
     log(`INF: SEO map rebuilt — ${b.filter(x => x.hasLiveData).length}/4 live prices`);
   }, [fcastSeo, positions, log]);
 
-  // ── Portfolio value ────────────────────────────────────────────────────────
+  // ── USDC balance — Polygon RPC, auth-free, every 60 s ────────────────────
   useEffect(() => {
-    if (!walletAddr) return;
+    if (!walletAddr || walletAddr.length !== 42) return;
     const run = async () => {
-      try {
-        const r = await fetch(`https://data-api.polymarket.com/value?user=${walletAddr}`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const d = await r.json();
-        const usdc  = parseFloat(d?.USDC ?? d?.usdc ?? d?.usdcBalance ?? d?.usdc_balance ?? 0) || 0;
-        const total = parseFloat(d?.totalValue ?? d?.total_value ?? d?.portfolioValue ?? d?.portfolio_value ?? d?.value ?? 0) || 0;
-        setPortfolio({ usdc, total });
-        log(`SUCC: Portfolio value = ${fmt(total)}`);
-      } catch {
-        log('ERR: Portfolio /value fetch failed');
-      }
+      const usdc = await fetchUsdcBalance(walletAddr);
+      setPortfolio({ usdc });
+      log(`RPC: USDC.e on-chain = ${fmt(usdc)}`);
     };
     run();
     const iv = setInterval(run, 60_000);
@@ -467,43 +497,53 @@ export default function LariantTerminal() {
             → Open Settings
           </button>
         </section>
-      ) : (
-        <section className="border border-[#262626] bg-[#050505] p-4 space-y-3">
-          <header className="flex justify-between items-center border-b border-[#1a1a1a] pb-2">
-            <span className="uppercase tracking-widest opacity-50 text-[9px]">Portfolio Overview</span>
-            <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#9fff88] animate-pulse" />
-              <span className="text-[8px]" style={{ color: '#9fff88' }}>LIVE</span>
+      ) : (() => {
+        // Derive accounting figures from live state — no extra fetch needed
+        const posValue = positions.reduce((s, p) => s + p.currentValue, 0);
+        const usdc     = portfolio?.usdc ?? null;
+        const total    = usdc !== null ? usdc + posValue : null;
+        return (
+          <section className="border border-[#262626] bg-[#050505] p-4 space-y-3">
+            <header className="flex justify-between items-center border-b border-[#1a1a1a] pb-2">
+              <span className="uppercase tracking-widest opacity-50 text-[9px]">Portfolio Overview</span>
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#9fff88] animate-pulse" />
+                <span className="text-[8px]" style={{ color: '#9fff88' }}>LIVE · POLYGON RPC</span>
+              </div>
+            </header>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {/* Total = USDC + Positions */}
+              <div>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">Total Value</span>
+                <span className="text-xl font-bold" style={{ color: '#9fff88' }}>
+                  {total !== null ? fmt(total) : <span className="animate-pulse opacity-40">…</span>}
+                </span>
+              </div>
+              {/* Liquid cash on-chain */}
+              <div>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">USDC.e (Liquid)</span>
+                <span className="text-xl font-bold text-white">
+                  {usdc !== null ? fmt(usdc) : <span className="animate-pulse opacity-40">…</span>}
+                </span>
+              </div>
+              {/* Positions value — sum of currentValue from Gamma API */}
+              <div>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">Positions Value</span>
+                <span className="text-sm" style={{ color: posValue > 0 ? '#9fff88' : '#ababab' }}>
+                  {positions.length > 0 ? fmt(posValue) : '—'}
+                </span>
+              </div>
+              {/* Count */}
+              <div>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">Open Positions</span>
+                <span className="text-sm" style={{ color: positions.length > 0 ? '#9fff88' : '#ababab' }}>
+                  {loadingPos && positions.length === 0 ? '…' : positions.length}
+                </span>
+              </div>
             </div>
-          </header>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div>
-              <span className="block text-[8px] uppercase opacity-40 mb-0.5">Total Value</span>
-              <span className="text-xl font-bold" style={{ color: '#9fff88' }}>
-                {portfolio ? fmt(portfolio.total) : <span className="animate-pulse opacity-40">…</span>}
-              </span>
-            </div>
-            <div>
-              <span className="block text-[8px] uppercase opacity-40 mb-0.5">USDC Balance</span>
-              <span className="text-xl font-bold text-white">
-                {portfolio ? fmt(portfolio.usdc) : <span className="animate-pulse opacity-40">…</span>}
-              </span>
-            </div>
-            <div>
-              <span className="block text-[8px] uppercase opacity-40 mb-0.5">Locked Margin</span>
-              <span className="text-sm text-white">
-                {positions.length > 0 ? fmt(positions.reduce((s, p) => s + p.currentValue, 0)) : '—'}
-              </span>
-            </div>
-            <div>
-              <span className="block text-[8px] uppercase opacity-40 mb-0.5">Open Positions</span>
-              <span className="text-sm" style={{ color: positions.length > 0 ? '#9fff88' : '#ababab' }}>
-                {loadingPos && positions.length === 0 ? '…' : positions.length}
-              </span>
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* London EV Map */}
       <InferenceChart city="LONDON SHADOW NODE" code="LON"
