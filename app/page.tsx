@@ -38,8 +38,6 @@ type ActiveTab = 'terminal' | 'pnl' | 'positions' | 'settings';
 // ============================================================================
 // Constants
 // ============================================================================
-const SIGMA_LON       = 2.2;
-const SIGMA_SEO       = 2.8;
 const NEUTRAL_FALLBACK = 0.15;
 const EV_THRESHOLD    = 0.05;
 const DUST_THRESHOLD  = 0.10;
@@ -66,6 +64,60 @@ function erf(x: number): number {
 
 function normalCDF(x: number, mu: number, sigma: number): number {
   return 0.5 * (1 + erf((x - mu) / (sigma * Math.SQRT2)));
+}
+
+// ============================================================================
+// Phase 2a Calibration Matrix — per-city, per-calendar-month.
+// Mirrors tempbot.py _CALIB_MATRIX exactly.
+// bias  : systematic model over/underestimate (°C). adj_fcst = forecast - bias.
+// sigma : predictive spread (°C) fed to normalCDF.
+// tdays : forecast horizon in days (currently always 1 for T+1 product).
+// ============================================================================
+const _CALIB_MATRIX: Record<'LON' | 'SEO', Record<number, { bias: number; sigma: number }>> = {
+  LON: {
+    1:  { bias: -0.8, sigma: 2.4 },
+    2:  { bias: -0.5, sigma: 2.3 },
+    3:  { bias:  0.1, sigma: 2.2 },
+    4:  { bias:  0.3, sigma: 2.0 },
+    5:  { bias:  0.4, sigma: 1.9 },
+    6:  { bias:  0.5, sigma: 1.8 },
+    7:  { bias:  0.4, sigma: 1.7 },
+    8:  { bias:  0.3, sigma: 1.8 },
+    9:  { bias:  0.1, sigma: 1.9 },
+    10: { bias: -0.2, sigma: 2.1 },
+    11: { bias: -0.5, sigma: 2.3 },
+    12: { bias: -0.7, sigma: 2.4 },
+  },
+  SEO: {
+    1:  { bias: -1.2, sigma: 3.2 },
+    2:  { bias: -0.8, sigma: 3.0 },
+    3:  { bias: -0.2, sigma: 2.8 },
+    4:  { bias:  0.3, sigma: 2.5 },
+    5:  { bias:  0.6, sigma: 2.3 },
+    6:  { bias:  0.8, sigma: 2.1 },
+    7:  { bias:  0.5, sigma: 2.4 },
+    8:  { bias:  0.3, sigma: 2.3 },
+    9:  { bias: -0.1, sigma: 2.5 },
+    10: { bias: -0.5, sigma: 2.7 },
+    11: { bias: -0.8, sigma: 3.0 },
+    12: { bias: -1.1, sigma: 3.2 },
+  },
+} as const;
+
+/**
+ * Phase 2a: look up bias + sigma for a given city, month, and horizon.
+ * Mirrors tempbot.py get_dynamic_calibration().
+ * @param city   'LON' | 'SEO'
+ * @param month  1–12 (calendar month)
+ * @param tdays  forecast horizon in days (default 1)
+ */
+function get_dynamic_calibration(
+  city: 'LON' | 'SEO',
+  month: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _tdays = 1,
+): { bias: number; sigma: number } {
+  return _CALIB_MATRIX[city]?.[month] ?? { bias: 0, sigma: city === 'LON' ? 2.2 : 2.8 };
 }
 
 function matchBucketToPositions(label: string, positions: Position[]): number | null {
@@ -95,11 +147,12 @@ function matchBucketToPositions(label: string, positions: Position[]): number | 
   return null;
 }
 
-function buildBuckets(mu: number, sigma: number, positions: Position[]): BucketData[] {
-  const base = Math.floor(mu) - 1;
-  const p0   = normalCDF(base,     mu, sigma);
-  const p1   = normalCDF(base + 1, mu, sigma);
-  const p2   = normalCDF(base + 2, mu, sigma);
+// adjForecast = raw forecast − bias (Phase 2a de-biasing applied by caller)
+function buildBuckets(adjForecast: number, sigma: number, positions: Position[]): BucketData[] {
+  const base = Math.floor(adjForecast) - 1;
+  const p0   = normalCDF(base,     adjForecast, sigma);
+  const p1   = normalCDF(base + 1, adjForecast, sigma);
+  const p2   = normalCDF(base + 2, adjForecast, sigma);
   return [
     { label: `<${base}°C`,               modelProb: p0      },
     { label: `${base}-${base + 1}°C`,    modelProb: p1 - p0 },
@@ -163,10 +216,13 @@ function InferenceChart({ city, code, forecast, map, sigma }: InferenceChartProp
         {/* Header */}
         <div className="flex justify-between items-center shrink-0 mb-1">
           <span className="text-[8px] uppercase tracking-widest" style={{ color: '#9fff88', opacity: 0.7 }}>
-            {city} <span className="opacity-60">σ={sigma}°C</span>
+            {city}
           </span>
-          <span className="text-[8px] uppercase tracking-widest" style={{ color: '#9fff88' }}>
-            {forecast !== null ? `T+1: ${forecast.toFixed(1)}°C` : `FETCHING ${code}…`}
+          <span className="text-[8px] uppercase tracking-widest font-mono flex items-center gap-2" style={{ color: '#9fff88' }}>
+            {forecast !== null ? `FV: ${forecast.toFixed(1)}°C` : `FETCHING ${code}…`}
+            <span className="opacity-60 border border-[#9fff88] border-opacity-30 px-1 py-0.5 text-[7px]">
+              σ={sigma.toFixed(1)}°C
+            </span>
           </span>
         </div>
         {/* Legend */}
@@ -383,20 +439,41 @@ function computeTradesFromActivity(activities: any[]): TradeRecord[] {
       if (!isBuy && !isSell) continue; // skip TRANSFER, MERGE, etc.
 
       // ── Dollar amount ─────────────────────────────────────────────────────
-      // Try every known field; last resort: shares × price
-      const sharesRaw  = num(act.shares ?? act.size ?? act.outcome_shares);
-      const priceRaw   = num(act.price  ?? act.avg_price);
-      let   dollarsRaw = num(act.usdcAmount ?? act.usdc_amount ?? act.amount ?? act.cashflow);
+      const sharesRaw = num(act.shares ?? act.size ?? act.outcome_shares);
+      const priceRaw  = num(act.price  ?? act.avg_price);
+
+      // Resolution order:
+      //  1. Explicit dollar field (usdcAmount / usdc_amount / amount / cashflow)
+      let dollarsRaw = num(act.usdcAmount ?? act.usdc_amount ?? act.amount ?? act.cashflow);
+
+      //  2. shares × price when dollar field absent
       if (isNaN(dollarsRaw) && !isNaN(sharesRaw) && !isNaN(priceRaw)) {
         dollarsRaw = sharesRaw * priceRaw;
       }
-      // For REDEEM/WIN with no price field: payout = shares × $1.00
-      if (isNaN(dollarsRaw) && isSell && !isNaN(sharesRaw)) {
+
+      //  3. $1.00/share WIN payout — ONLY for explicit win-type events.
+      //     Do NOT apply to generic REDEEM: it could be the losing side (gets $0).
+      //     Do NOT apply to SELL: it has its own market price.
+      if (isNaN(dollarsRaw) && (sideKey === 'WIN' || sideKey === 'CLAIM') && !isNaN(sharesRaw)) {
         dollarsRaw = sharesRaw; // $1.00 per winning share
       }
-      // Guard: both critical values must be usable
-      const shares  = isNaN(sharesRaw)  || sharesRaw  <= 0 ? null : sharesRaw;
-      const dollars = isNaN(dollarsRaw) || dollarsRaw <= 0 ? null : dollarsRaw;
+
+      // shares must be positive to do any accounting
+      const shares = isNaN(sharesRaw) || sharesRaw <= 0 ? null : sharesRaw;
+
+      // dollars rules differ by side:
+      //   BUY  → must be > 0 (you can't buy for free; $0 means bad data → skip)
+      //   SELL → allow $0 (position expired worthless = full loss of cost basis)
+      //          still skip if completely unknown (NaN)
+      let dollars: number | null;
+      if (isNaN(dollarsRaw)) {
+        dollars = null;                                   // unknown → skip
+      } else if (isBuy) {
+        dollars = dollarsRaw > 0 ? dollarsRaw : null;    // BUY must cost something
+      } else {
+        dollars = Math.max(0, dollarsRaw);                // SELL: clamp to 0, allow loss
+      }
+
       if (shares === null || dollars === null) continue;
 
       // ── Market label ──────────────────────────────────────────────────────
@@ -509,6 +586,9 @@ export default function LariantTerminal() {
   const [mapSeo,       setMapSeo]       = useState<BucketData[]>([]);
   const [fcastLon,     setFcastLon]     = useState<number | null>(null);
   const [fcastSeo,     setFcastSeo]     = useState<number | null>(null);
+  // Phase 2a: dynamic sigma from calibration matrix (shown in inference chart header)
+  const [sigmaLon,     setSigmaLon]     = useState<number>(2.2);
+  const [sigmaSeo,     setSigmaSeo]     = useState<number>(2.8);
   const [tradePnls,    setTradePnls]    = useState<TradeRecord[]>([]);
   const [loadingPnl,   setLoadingPnl]   = useState(false);
   const [pnlFetched,   setPnlFetched]   = useState(false);
@@ -554,7 +634,7 @@ export default function LariantTerminal() {
         const d = await r.json();
         const t: number = d.daily.temperature_2m_max[1];
         setFcastLon(t);
-        log(`METEO: LON T+1 MAX = ${t.toFixed(1)}°C (σ=${SIGMA_LON})`);
+        log(`METEO: LON T+1 MAX = ${t.toFixed(1)}°C`);
       } catch {
         setFcastLon(14.0);
         log('WARN: Open-Meteo LON failed — fallback 14.0°C');
@@ -570,7 +650,7 @@ export default function LariantTerminal() {
         const d = await r.json();
         const t: number = d.daily.temperature_2m_max[1];
         setFcastSeo(t);
-        log(`METEO: SEO T+1 MAX = ${t.toFixed(1)}°C (σ=${SIGMA_SEO})`);
+        log(`METEO: SEO T+1 MAX = ${t.toFixed(1)}°C`);
       } catch {
         setFcastSeo(18.0);
         log('WARN: Open-Meteo SEO failed — fallback 18.0°C');
@@ -578,19 +658,29 @@ export default function LariantTerminal() {
     })();
   }, [log]);
 
-  // ── EV Map: rebuild when forecast OR positions change ─────────────────────
+  // ── EV Map: rebuild when forecast OR positions change — Phase 2a pricing ──
+  // Uses get_dynamic_calibration() for month-aware bias + sigma.
+  // adj_fcst = raw_forecast − bias (mirrors tempbot.py Phase 2a formula).
   useEffect(() => {
     if (fcastLon === null) return;
-    const b = buildBuckets(fcastLon, SIGMA_LON, positions);
+    const month = new Date().getMonth() + 1;
+    const { bias, sigma } = get_dynamic_calibration('LON', month);
+    const adj_fcst = fcastLon - bias;
+    setSigmaLon(sigma);
+    const b = buildBuckets(adj_fcst, sigma, positions);
     setMapLon(b);
-    log(`INF: LON map rebuilt — ${b.filter(x => x.hasLiveData).length}/4 live prices`);
+    log(`INF: LON map rebuilt — adj_fcst=${adj_fcst.toFixed(1)}°C bias=${bias} σ=${sigma} — ${b.filter(x => x.hasLiveData).length}/4 live prices`);
   }, [fcastLon, positions, log]);
 
   useEffect(() => {
     if (fcastSeo === null) return;
-    const b = buildBuckets(fcastSeo, SIGMA_SEO, positions);
+    const month = new Date().getMonth() + 1;
+    const { bias, sigma } = get_dynamic_calibration('SEO', month);
+    const adj_fcst = fcastSeo - bias;
+    setSigmaSeo(sigma);
+    const b = buildBuckets(adj_fcst, sigma, positions);
     setMapSeo(b);
-    log(`INF: SEO map rebuilt — ${b.filter(x => x.hasLiveData).length}/4 live prices`);
+    log(`INF: SEO map rebuilt — adj_fcst=${adj_fcst.toFixed(1)}°C bias=${bias} σ=${sigma} — ${b.filter(x => x.hasLiveData).length}/4 live prices`);
   }, [fcastSeo, positions, log]);
 
   // ── USDC balance — Polygon RPC, auth-free, every 60 s ────────────────────
@@ -624,16 +714,31 @@ export default function LariantTerminal() {
         const mapped: Position[] = data
           .filter((i: any) => parseFloat(i?.currentValue ?? i?.value ?? 0) >= DUST_THRESHOLD)
           .map((i: any) => {
-            const sz  = parseFloat(i?.size)         || 1;
-            const inv = parseFloat(i?.initialValue ?? i?.avgPrice ?? 0) || 0;
-            const cv  = parseFloat(i?.currentValue ?? i?.value ?? 0)    || 0;
+            const sz  = parseFloat(i?.size) || 1;
+
+            // Cost basis: total dollars invested (NOT per-share). Try all known field names.
+            const inv = parseFloat(i?.initialValue ?? i?.investedAmount ?? i?.costBasis ?? 0) || 0;
+
+            // Current market value of the full position
+            const cv  = parseFloat(i?.currentValue ?? i?.value ?? 0) || 0;
+
+            // ── UNREALIZED PnL — computed locally, never trusted from API ────
+            // BUG ROOT CAUSE: `i?.cashPnl ?? 0` defaults to 0 when the field is
+            // missing/undefined. 0 >= 0 = true → every position rendered green.
+            // FIX: compute directly from currentValue and cost basis.
+            //   For YES shares:  PnL = currentValue − costBasis
+            //   For NO  shares:  same formula (NO tokens have their own market price)
+            // This can be negative → rendered red correctly.
+            const unrealizedPnl = cv - inv;
+            const unrealizedPct = inv > 0 ? ((cv - inv) / inv) * 100 : 0;
+
             return {
               id:           i?.assetId ?? i?.conditionId ?? Math.random().toString(36),
               title:        i?.title ?? i?.question ?? i?.market ?? 'Untitled Market',
               size:         i?.size ?? 0,
               currentValue: cv,
-              cashPnl:      parseFloat(i?.cashPnl   ?? i?.pnl   ?? 0) || 0,
-              percentPnl:   parseFloat(i?.percentPnl ?? i?.pnlPct ?? 0) || 0,
+              cashPnl:      unrealizedPnl,
+              percentPnl:   unrealizedPct,
               entryPrice:   sz > 0 ? inv / sz : 0,
               currentPrice: sz > 0 ? cv  / sz : 0,
               outcome:      i?.outcome ?? i?.side ?? '',
@@ -759,17 +864,32 @@ export default function LariantTerminal() {
                 </span>
               </div>
             </div>
+            {/* Phase 2a Model Confidence row */}
+            <div className="border-t border-[#1a1a1a] pt-2 mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+              <div>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">LON σ (Confidence)</span>
+                <span className="text-[11px] font-mono" style={{ color: '#9fff88' }}>
+                  {sigmaLon.toFixed(1)}°C
+                </span>
+              </div>
+              <div>
+                <span className="block text-[8px] uppercase opacity-40 mb-0.5">SEO σ (Confidence)</span>
+                <span className="text-[11px] font-mono" style={{ color: '#9fff88' }}>
+                  {sigmaSeo.toFixed(1)}°C
+                </span>
+              </div>
+            </div>
           </section>
         );
       })()}
 
-      {/* London EV Map */}
+      {/* London EV Map — sigma from Phase 2a calibration matrix */}
       <InferenceChart city="LONDON SHADOW NODE" code="LON"
-        forecast={fcastLon} map={mapLon} sigma={SIGMA_LON} />
+        forecast={fcastLon} map={mapLon} sigma={sigmaLon} />
 
-      {/* Seoul EV Map */}
+      {/* Seoul EV Map — sigma from Phase 2a calibration matrix */}
       <InferenceChart city="SEOUL SHADOW NODE" code="SEO"
-        forecast={fcastSeo} map={mapSeo} sigma={SIGMA_SEO} />
+        forecast={fcastSeo} map={mapSeo} sigma={sigmaSeo} />
 
       {/* Event Log */}
       <section className="border border-[#262626] bg-[#020202] p-3 flex flex-col" style={{ height: '9rem' }}>
