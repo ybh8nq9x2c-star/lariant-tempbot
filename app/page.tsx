@@ -18,6 +18,8 @@ interface Position {
   entryPrice: number;
   currentPrice: number;
   outcome: string;
+  /** Quantitative edge at entry (from trades.jsonl via S3). Present only when S3 active. */
+  edgeEntry?: number;
 }
 
 interface BucketData {
@@ -626,6 +628,63 @@ export default function LariantTerminal() {
     return () => clearInterval(iv);
   }, []);
 
+  // ── S3 live data — fetches positions.json + trades.jsonl every 30 s ───────
+  // /api/s3data is a Next.js API route that reads from AWS S3 using the
+  // @aws-sdk/client-s3 package (or proxies to s3_api.py if S3_API_URL is set).
+  //
+  // When S3 is available (s3Available: true):
+  //   • Positions are sourced from S3 positions.json (includes edgeEntry).
+  //   • sigmaLon / sigmaSeo are overridden with the latest sigma_used from trades.jsonl.
+  //   • The Polymarket /positions polling is kept running as a live-price fallback.
+  //
+  // When S3 is not configured (S3_BUCKET env var absent):
+  //   • s3Available: false  → no-op here; existing Polymarket/calibration paths continue.
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchS3 = async () => {
+      try {
+        const res = await fetch('/api/s3data', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: {
+          s3Available: boolean;
+          positions:   Position[];
+          sigmaLon:    number;
+          sigmaSeo:    number;
+        } = await res.json();
+
+        if (cancelled) return;
+
+        if (!data.s3Available) {
+          // S3 not configured — silently skip, existing state unchanged
+          return;
+        }
+
+        // ── Override sigma from S3 trades.jsonl (most recent sigma_used per city) ──
+        // Triggers the EV-map useEffects below to rebuild with the new sigma.
+        if (isFinite(data.sigmaLon)) setSigmaLon(data.sigmaLon);
+        if (isFinite(data.sigmaSeo)) setSigmaSeo(data.sigmaSeo);
+
+        // ── Override positions from S3 positions.json ──────────────────────
+        // S3 includes edgeEntry; Polymarket API does not.
+        // If S3 returns an empty array, fall through to the Polymarket data already
+        // in state — don't wipe out live data if the bot hasn't written yet.
+        if (Array.isArray(data.positions) && data.positions.length > 0) {
+          setPositions(data.positions);
+          log(`S3: ${data.positions.length} positions | σLON=${data.sigmaLon} σSEO=${data.sigmaSeo}`);
+        }
+      } catch (err: unknown) {
+        // Non-fatal: S3 API not reachable — existing state (Polymarket) persists
+        const msg = err instanceof Error ? err.message : String(err);
+        log(`WARN: S3 fetch failed (${msg}) — using Polymarket fallback`);
+      }
+    };
+
+    fetchS3(); // immediate first fetch
+    const iv = setInterval(fetchS3, 30_000); // then every 30 s
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [log]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Weather: London 51.5048, 0.0495 ───────────────────────────────────────
   useEffect(() => {
     (async () => {
@@ -1128,11 +1187,16 @@ export default function LariantTerminal() {
                     <span className="text-white">{fmt(pos.currentValue)}</span>
                   </div>
                 </div>
-                {/* PnL row */}
+                {/* PnL row — edgeEntry slot inserted when S3 provides it */}
                 <div className="flex justify-between items-center text-[9px]">
                   <span style={{ color: pnlClr }}>
                     PnL {profit ? '+' : ''}{fmt(pos.cashPnl)}
                   </span>
+                  {pos.edgeEntry !== undefined && (
+                    <span style={{ color: '#6b6b6b' }}>
+                      EDGE {pos.edgeEntry >= 0 ? '+' : ''}{(pos.edgeEntry * 100).toFixed(1)}%
+                    </span>
+                  )}
                   <span style={{ color: pnlClr }}>
                     ROI {pct(pos.percentPnl)}
                   </span>
@@ -1185,6 +1249,7 @@ export default function LariantTerminal() {
           ['SEO Forecast', fcastSeo !== null ? `${fcastSeo.toFixed(1)}°C` : 'PENDING',               fcastSeo !== null],
           ['Positions',    `${positions.length} active`,                                               positions.length > 0],
           ['Activity',     pnlFetched ? `${tradePnls.length} trades` : 'NOT LOADED',                  pnlFetched],
+          ['Data Source',  positions.length > 0 && positions[0]?.edgeEntry !== undefined ? 'S3 LIVE' : 'POLYMARKET', positions.length > 0],
         ] as [string, string, boolean][]).map(([lbl, val, ok]) => (
           <div key={lbl} className="flex justify-between items-center text-[10px]">
             <span className="opacity-40 uppercase">{lbl}</span>
