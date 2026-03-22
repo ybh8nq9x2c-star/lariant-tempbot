@@ -1371,21 +1371,33 @@ export default function LariantTerminal() {
       <div className={`fixed inset-0 pointer-events-none z-50 opacity-[0.03] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_2px,3px_100%]`} />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="border-b border-[#262626] bg-[#0a0a0a] flex justify-between items-center px-3 h-11 sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          {/* Lariant logo — falls back gracefully if image missing */}
-          <img src="/lariant-logo.jpg" alt=""
-            className="w-7 h-7 rounded-full object-cover border border-[#262626] shrink-0"
-            onError={(e: any) => { e.currentTarget.style.display = 'none'; }} />
-          <span className="font-bold tracking-widest text-xs drop-shadow-[0_0_6px_rgba(159,255,136,0.5)]"
-            style={{ color: '#9fff88' }}>
-            LARIANT
+      {/*
+        ── App Header — iPhone 15 / Dynamic Island safe ──────────────────────
+        The outer <header> absorbs env(safe-area-inset-top) as top padding so
+        the bar background fills the status-bar area while the inner content
+        row sits *below* the Dynamic Island / notch.  h-11 is kept on the
+        inner row so the content height is consistent across devices.
+      */}
+      <header
+        className="border-b border-[#262626] bg-[#0a0a0a] sticky top-0 z-40"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="flex justify-between items-center px-3 h-11">
+          <div className="flex items-center gap-2">
+            {/* Use branded PWA icon (green mark on black) instead of raw JPG */}
+            <img src="/lariant-icon-192.png" alt="LARIANT"
+              className="w-7 h-7 rounded-full object-cover shrink-0"
+              onError={(e: any) => { e.currentTarget.style.display = 'none'; }} />
+            <span className="font-bold tracking-widest text-xs drop-shadow-[0_0_6px_rgba(159,255,136,0.5)]"
+              style={{ color: '#9fff88' }}>
+              LARIANT
+            </span>
+            <div className="w-1.5 h-1.5 rounded-full bg-[#9fff88] animate-pulse" />
+          </div>
+          <span className="text-[8px] uppercase tracking-tighter opacity-40">
+            {walletAddr ? `${walletAddr.slice(0,4)}…${walletAddr.slice(-4)}` : 'NO WALLET'} | {clock}
           </span>
-          <div className="w-1.5 h-1.5 rounded-full bg-[#9fff88] animate-pulse" />
         </div>
-        <span className="text-[8px] uppercase tracking-tighter opacity-40">
-          {walletAddr ? `${walletAddr.slice(0,4)}…${walletAddr.slice(-4)}` : 'NO WALLET'} | {clock}
-        </span>
       </header>
 
       {/* ── Main scrollable area ────────────────────────────────────────────── */}
