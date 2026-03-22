@@ -212,6 +212,12 @@ interface InferenceChartProps {
 }
 
 function InferenceChart({ city, code, forecast, map, sigma }: InferenceChartProps) {
+  // ── iOS touch fix ──────────────────────────────────────────────────────────
+  // On iOS, Recharts tooltips become "sticky" after a tap because the browser
+  // fires mousemove once on touchstart then never fires mouseleave.
+  // Fix: track tooltip visibility in local state; dismiss on touchEnd + mouseleave.
+  const [tooltipActive, setTooltipActive] = useState(true);
+
   return (
     <section className="border border-[#262626] bg-[#020202] relative overflow-hidden" style={{ height: '13rem' }}>
       <div className="absolute inset-0 flex flex-col p-3">
@@ -237,8 +243,29 @@ function InferenceChart({ city, code, forecast, map, sigma }: InferenceChartProp
             <span key={lbl} className="text-[7px] uppercase opacity-50 flex items-center gap-1">{sw}{lbl}</span>
           ))}
         </div>
-        {/* Chart — explicit px height required: Recharts cannot measure flex-grow at hydration */}
-        <div style={{ height: 140, overflow: 'hidden' }}>
+        {/*
+          Chart wrapper — iOS-specific touch fixes applied here:
+          • touch-action: pan-y  → lets user scroll vertically through the chart
+            without the SVG element capturing the gesture.
+          • WebkitTapHighlightColor: transparent → removes the blue flash on tap.
+          • user-select: none → prevents iOS text-selection loupe on long-press.
+          • onTouchEnd: dismisses the tooltip 200 ms after the finger lifts.
+            The delay keeps the tooltip visible just long enough for the user to
+            read it before it fades, matching iOS "tap-to-see, lift-to-dismiss".
+          • onMouseLeave: dismisses on desktop hover-out; re-enables on re-enter.
+        */}
+        <div
+          style={{
+            height: 140, overflow: 'hidden',
+            touchAction: 'pan-y',
+            WebkitTapHighlightColor: 'transparent',
+            userSelect: 'none',
+          }}
+          onTouchStart={() => setTooltipActive(true)}
+          onTouchEnd={() => setTimeout(() => setTooltipActive(false), 200)}
+          onMouseEnter={() => setTooltipActive(true)}
+          onMouseLeave={() => setTooltipActive(false)}
+        >
           {map.length === 0 ? (
             <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9fff88', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.1em' }} className="animate-pulse">
               Computing…
@@ -256,7 +283,14 @@ function InferenceChart({ city, code, forecast, map, sigma }: InferenceChartProp
                     <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                   </filter>
                 </defs>
-                <Tooltip content={<EvTooltip />} cursor={{ stroke: '#2a2a2a', strokeWidth: 1 }} />
+                {/* Tooltip only rendered when active — prevents sticky iOS hover state */}
+                {tooltipActive && (
+                  <Tooltip
+                    content={<EvTooltip />}
+                    cursor={{ stroke: '#2a2a2a', strokeWidth: 1 }}
+                    wrapperStyle={{ pointerEvents: 'none' }}
+                  />
+                )}
                 <XAxis dataKey="bucket" axisLine={false} tickLine={false}
                   interval="preserveStartEnd" tickMargin={5}
                   tick={{ fill: '#ababab', fontSize: 10, fontFamily: 'monospace' }} />
@@ -544,8 +578,25 @@ const PnlBarTooltip = ({ active, payload, label }: any) => {
 function PnlChart({ trades }: { trades: TradeRecord[] }) {
   const last20 = trades.slice(-20);
   const data   = last20.map((t, i) => ({ name: `T${trades.length - last20.length + i + 1}`, pnl: parseFloat(t.pnl.toFixed(4)), isWin: t.isWin }));
+  // iOS touch fix — same pattern as InferenceChart
+  const [tooltipActive, setTooltipActive] = useState(true);
   return (
-    <div style={{ height: 140, overflow: 'hidden' }}>
+    /*
+     * touch-action: pan-y  → vertical scroll passes through unhindered on iPhone.
+     * onTouchEnd + 200 ms delay → tap shows tooltip briefly, then auto-dismisses.
+     */
+    <div
+      style={{
+        height: 140, overflow: 'hidden',
+        touchAction: 'pan-y',
+        WebkitTapHighlightColor: 'transparent',
+        userSelect: 'none',
+      }}
+      onTouchStart={() => setTooltipActive(true)}
+      onTouchEnd={() => setTimeout(() => setTooltipActive(false), 200)}
+      onMouseEnter={() => setTooltipActive(true)}
+      onMouseLeave={() => setTooltipActive(false)}
+    >
       {data.length === 0 ? (
         <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9fff88', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.4 }}>
           No closed trades yet
@@ -556,7 +607,13 @@ function PnlChart({ trades }: { trades: TradeRecord[] }) {
             <XAxis dataKey="name" axisLine={false} tickLine={false} interval="preserveStartEnd" tickMargin={5} tick={{ fill: '#ababab', fontSize: 8, fontFamily: 'monospace' }} />
             <YAxis axisLine={false} tickLine={false} tick={{ fill: '#ababab', fontSize: 8, fontFamily: 'monospace' }} />
             <ReferenceLine y={0} stroke="#383838" strokeWidth={1} />
-            <Tooltip content={<PnlBarTooltip />} cursor={{ fill: '#1a1a1a' }} />
+            {tooltipActive && (
+              <Tooltip
+                content={<PnlBarTooltip />}
+                cursor={{ fill: '#1a1a1a' }}
+                wrapperStyle={{ pointerEvents: 'none' }}
+              />
+            )}
             <Bar dataKey="pnl" isAnimationActive={false} radius={[2, 2, 0, 0]}>
               {data.map((entry, idx) => (
                 <Cell key={`cell-${idx}`} fill={entry.isWin ? '#9fff88' : '#ff706f'} fillOpacity={0.85} />
@@ -1371,6 +1428,8 @@ export default function LariantTerminal() {
           cursor: crosshair;
           -webkit-tap-highlight-color: transparent;
           overscroll-behavior-y: none;
+          /* iOS momentum scroll on the full page */
+          -webkit-overflow-scrolling: touch;
         }
 
         * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
