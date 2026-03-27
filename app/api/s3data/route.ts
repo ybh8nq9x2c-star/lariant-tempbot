@@ -67,6 +67,42 @@ function parseTrades(raw: string): Record<string, unknown>[] {
     });
 }
 
+// ── Phase 2 dataset metrics ───────────────────────────────────────────────────
+/**
+ * Filter trades.jsonl for Phase 2 ML dataset collection records.
+ *
+ * A valid Phase 2 entry must satisfy BOTH:
+ *   version === "v2-bias-patch-stable"   (ensures only calibrated bot runs count)
+ *   event   === "ENTRY"                  (only new position entries, not exits)
+ *
+ * Returns:
+ *   phase2EntryCount — number of qualifying records (target: 300)
+ *   phase2AvgEdge   — mean edge_entry across those records (decimal fraction,
+ *                     e.g. 0.083 = 8.3%). NaN-safe; returns 0 if no data.
+ */
+function computePhase2Metrics(trades: Record<string, unknown>[]): {
+  phase2EntryCount: number;
+  phase2AvgEdge:    number;
+} {
+  const v2Entries = trades.filter(
+    t => t.version === 'v2-bias-patch-stable' && t.event === 'ENTRY',
+  );
+
+  const edgeValues = v2Entries
+    .map(t => parseFloat(String(t.edge_entry ?? t.edge ?? '')))
+    .filter(isFinite);
+
+  const avgEdge =
+    edgeValues.length > 0
+      ? edgeValues.reduce((s, v) => s + v, 0) / edgeValues.length
+      : 0;
+
+  return {
+    phase2EntryCount: v2Entries.length,
+    phase2AvgEdge:    +avgEdge.toFixed(6),
+  };
+}
+
 /** Walk trades oldest→newest; last sigma_used per city wins. */
 function latestSigma(trades: Record<string, unknown>[]): Record<string, number> {
   const sigma: Record<string, number> = {};
@@ -142,10 +178,12 @@ export async function GET(): Promise<NextResponse> {
   const bucket = process.env.S3_BUCKET;
   if (!bucket) {
     return NextResponse.json({
-      s3Available: false,
-      positions:   [],
-      sigmaLon:    2.2,
-      sigmaSeo:    2.8,
+      s3Available:      false,
+      positions:        [],
+      sigmaLon:         2.2,
+      sigmaSeo:         2.8,
+      phase2EntryCount: 0,
+      phase2AvgEdge:    0,
     });
   }
 
@@ -165,20 +203,31 @@ export async function GET(): Promise<NextResponse> {
     const positions    = rawPositions.map(mapPosition);
     const trades       = parseTrades(tradesRaw);
     const sigma        = latestSigma(trades);
+    const phase2       = computePhase2Metrics(trades);
+
+    console.log(
+      `[s3data] OK — ${positions.length} positions | ` +
+      `σLON=${sigma['LON'] ?? 2.2} σSEO=${sigma['SEO'] ?? 2.8} | ` +
+      `Phase2 entries=${phase2.phase2EntryCount}/300 avgEdge=${(phase2.phase2AvgEdge * 100).toFixed(2)}%`,
+    );
 
     return NextResponse.json({
-      s3Available: true,
+      s3Available:      true,
       positions,
-      sigmaLon:    sigma['LON'] ?? 2.2,
-      sigmaSeo:    sigma['SEO'] ?? 2.8,
+      sigmaLon:         sigma['LON'] ?? 2.2,
+      sigmaSeo:         sigma['SEO'] ?? 2.8,
+      phase2EntryCount: phase2.phase2EntryCount,
+      phase2AvgEdge:    phase2.phase2AvgEdge,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[s3data] AWS error:', msg);
-    // Surface the error but don't crash the frontend
     return NextResponse.json(
-      { s3Available: false, positions: [], sigmaLon: 2.2, sigmaSeo: 2.8, error: msg },
-      { status: 200 }, // 200 so frontend fallback logic fires, not an error boundary
+      {
+        s3Available: false, positions: [], sigmaLon: 2.2, sigmaSeo: 2.8,
+        phase2EntryCount: 0, phase2AvgEdge: 0, error: msg,
+      },
+      { status: 200 },
     );
   }
 }

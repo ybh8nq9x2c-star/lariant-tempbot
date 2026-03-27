@@ -648,6 +648,10 @@ export default function LariantTerminal() {
   // Phase 2a: dynamic sigma from calibration matrix (shown in inference chart header)
   const [sigmaLon,     setSigmaLon]     = useState<number>(2.2);
   const [sigmaSeo,     setSigmaSeo]     = useState<number>(2.8);
+  // Phase 2 ML dataset collection — sourced from S3 trades.jsonl
+  // version="v2-bias-patch-stable" + event="ENTRY" records only
+  const [phase2Count,  setPhase2Count]  = useState<number>(0);
+  const [phase2Edge,   setPhase2Edge]   = useState<number>(0);
   const [tradePnls,    setTradePnls]    = useState<TradeRecord[]>([]);
   const [loadingPnl,   setLoadingPnl]   = useState(false);
   const [pnlFetched,   setPnlFetched]   = useState(false);
@@ -704,10 +708,12 @@ export default function LariantTerminal() {
         const res = await fetch('/api/s3data', { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: {
-          s3Available: boolean;
-          positions:   Position[];
-          sigmaLon:    number;
-          sigmaSeo:    number;
+          s3Available:      boolean;
+          positions:        Position[];
+          sigmaLon:         number;
+          sigmaSeo:         number;
+          phase2EntryCount: number;
+          phase2AvgEdge:    number;
         } = await res.json();
 
         if (cancelled) return;
@@ -726,9 +732,18 @@ export default function LariantTerminal() {
         // S3 includes edgeEntry; Polymarket API does not.
         // If S3 returns an empty array, fall through to the Polymarket data already
         // in state — don't wipe out live data if the bot hasn't written yet.
+        // ── Phase 2 metrics — always update when S3 is available ─────────────
+        // Updated even when positions[] is empty so the widget counts correctly
+        // while the bot has not opened any new positions yet.
+        if (isFinite(data.phase2EntryCount)) setPhase2Count(data.phase2EntryCount);
+        if (isFinite(data.phase2AvgEdge))    setPhase2Edge(data.phase2AvgEdge);
+
+        // ── Override positions from S3 positions.json ──────────────────────
+        // S3 includes edgeEntry; Polymarket API does not.
+        // If S3 returns an empty array, fall through to Polymarket state.
         if (Array.isArray(data.positions) && data.positions.length > 0) {
           setPositions(data.positions);
-          log(`S3: ${data.positions.length} positions | σLON=${data.sigmaLon} σSEO=${data.sigmaSeo}`);
+          log(`S3: ${data.positions.length} pos | σLON=${data.sigmaLon} σSEO=${data.sigmaSeo} | P2 ${data.phase2EntryCount}/300 edge=${(data.phase2AvgEdge * 100).toFixed(2)}%`);
         }
       } catch (err: unknown) {
         // Non-fatal: S3 API not reachable — existing state (Polymarket) persists
@@ -994,6 +1009,78 @@ export default function LariantTerminal() {
                   {sigmaSeo.toFixed(1)}°C
                 </span>
               </div>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* ── Phase 2 Dataset Collection Widget ────────────────────────────── */}
+      {/* Sourced from S3 trades.jsonl, version="v2-bias-patch-stable" + event="ENTRY" */}
+      {(() => {
+        const PHASE2_TARGET = 300;
+        const pct           = Math.min((phase2Count / PHASE2_TARGET) * 100, 100);
+        // Colour shifts: grey → amber → green as dataset fills
+        const barColour = pct >= 80 ? '#9fff88' : pct >= 40 ? '#f59e0b' : '#6b6b6b';
+        const glowColour = pct >= 80
+          ? 'rgba(159,255,136,0.45)'
+          : pct >= 40 ? 'rgba(245,158,11,0.35)' : 'rgba(107,107,107,0.2)';
+
+        return (
+          <section className="border border-[#262626] bg-[#050505] p-4 space-y-3">
+            {/* Header row */}
+            <div className="flex justify-between items-center border-b border-[#1a1a1a] pb-2">
+              <span className="uppercase tracking-widest opacity-50 text-[9px]">Phase 2 Dataset</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ background: barColour }} />
+                <span className="text-[8px] font-mono uppercase"
+                  style={{ color: barColour }}>
+                  {pct >= 100 ? 'COMPLETE' : 'COLLECTING'}
+                </span>
+              </div>
+            </div>
+
+            {/* Entry count + progress bar */}
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-[8px] uppercase opacity-40">Entries Tagged</span>
+                <span className="font-mono text-[11px] font-bold" style={{ color: barColour }}>
+                  {phase2Count}&nbsp;
+                  <span className="opacity-40 font-normal">/ {PHASE2_TARGET}</span>
+                </span>
+              </div>
+              {/* Progress track */}
+              <div className="h-[3px] rounded-full bg-[#1a1a1a] overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width:      `${pct}%`,
+                    background: `linear-gradient(90deg, ${barColour} 0%, ${barColour}cc 100%)`,
+                    boxShadow:  `0 0 8px ${glowColour}`,
+                    transition: 'width 0.7s ease',
+                  }}
+                />
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-[7px] opacity-20 font-mono">0</span>
+                <span className="text-[7px] opacity-20 font-mono">{PHASE2_TARGET}</span>
+              </div>
+            </div>
+
+            {/* Avg edge + version tag */}
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="block text-[7px] uppercase opacity-30 mb-0.5">Avg Edge</span>
+                <span className="font-mono text-[13px] font-bold"
+                  style={{ color: phase2Count > 0 ? '#9fff88' : '#3a3a3a' }}>
+                  {phase2Count > 0
+                    ? `+${(phase2Edge * 100).toFixed(2)}%`
+                    : '—'}
+                </span>
+              </div>
+              <span className="text-[7px] font-mono px-1.5 py-0.5 border border-[#1a1a1a] opacity-30">
+                v2-bias-patch-stable
+              </span>
             </div>
           </section>
         );
