@@ -158,7 +158,8 @@ function mapPosition(p: Record<string, unknown>): Record<string, unknown> {
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
-export const dynamic = 'force-dynamic'; // never cache — always fresh S3 data
+export const dynamic    = 'force-dynamic'; // never cache — always fresh S3 data
+export const revalidate = 0;              // disable ISR — force every request to hit S3
 
 export async function GET(): Promise<NextResponse> {
   // ── Option A: proxy to the Python s3_api.py sidecar (if configured) ────────
