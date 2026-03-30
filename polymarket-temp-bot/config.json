@@ -1,0 +1,50 @@
+{
+    "_comment": "TempBot v4.6 — Configurazione parametri. Modifica qui, non nel codice.",
+    
+    "trading": {
+        "MIN_MAKER_SPREAD": 0.0077,
+        "MAX_MAKER_SPREAD": 0.0125,
+        "GAMMA": 0.1,
+        "K_INTENSITY": 1.5,
+        "MIN_DEPTH_USD": 100.0,
+        "UMA_BUFFER": 0.004,
+        "ARB_MAKER_BUFFER": 0.012,
+        "SLIPPAGE_GUARD": 0.008,
+        "MISPRICING_THRESHOLD": 0.005,
+        "MIN_FORECAST_EDGE": 0.015,
+        "LOOP_SLEEP": 3
+    },
+
+    "risk": {
+        "MAX_RUIN_PROB": 0.01,
+        "MAX_DD": 0.15,
+        "MAX_PORTFOLIO_DD": 0.40,
+        "MC_PATHS": 10000,
+        "DAILY_STOPLOSS": -0.02,
+        "MAX_TOTAL_EXPOSURE_FRAC": 0.75,
+        "GROUP_CAP_FRAC": 0.25,
+        "CITY_CAP_FRAC": 0.40,
+        "NEAR_ARB_CAP_FRAC": 0.10,
+        "KELLY_FULL_CAP": 3.0,
+        "STOPLOSS_POSITION_PCT": 0.70,
+        "MIN_T_HOURS": 3,
+        "PER_TRADE_CAP_FRAC": 0.05,
+        "BECKER_BUY_ZONE_MIN": 0.06,
+        "BECKER_BUY_ZONE_MAX": 0.30,
+        "BECKER_SELL_ZONE_MIN": 0.75,
+        "BECKER_SELL_ZONE_MAX": 0.95
+    },
+
+    "model": {
+        "CITY_SIGMA_BASE": {"seoul": 2.8, "london": 2.2}
+    },
+
+    "intervals": {
+        "CREDS_REFRESH_INTERVAL": 1800,
+        "EXPOSURE_SYNC_INTERVAL": 60,
+        "CAPITAL_FETCH_INTERVAL": 60,
+        "REDEEM_CHECK_INTERVAL": 300,
+        "STOPLOSS_CHECK_INTERVAL": 120,
+        "SNAPSHOT_INTERVAL": 600
+    }
+}

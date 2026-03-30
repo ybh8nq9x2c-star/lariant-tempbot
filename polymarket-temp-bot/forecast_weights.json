@@ -1,0 +1,13 @@
+{
+  "ema_errors": {
+    "gfs_seamless": 1.9864,
+    "icon_seamless": 1.9461,
+    "meteofrance_seamless": 1.8702
+  },
+  "dynamic_weights": {
+    "gfs_seamless": 0.3244,
+    "icon_seamless": 0.3311,
+    "meteofrance_seamless": 0.3445
+  },
+  "last_eval_ts": 1773827375.624474
+}
