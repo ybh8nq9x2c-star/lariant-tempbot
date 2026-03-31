@@ -330,7 +330,7 @@ METAR_CACHE_TTL      = 300   # [FEAT2] 5 minutes
 GROUP_CAP_FRAC       = 0.25   # [v4.3-H3] max 25% capitale per city_date group
 MARKET_CACHE_TTL     = 60
 FORECAST_CACHE_TTL   = 1800
-FORECAST_FALLBACK_TTL = 300   # [v4.7-fix8] Riprova API ogni 5min se usando fallback
+FORECAST_FALLBACK_TTL = 900   # [v4.31-fix4] Raised from 300s: retry API every 15min to avoid 429 cascade
 WEIGHT_EMA_ALPHA     = 0.15        # [FEAT3] EMA smoothing for forecast error tracking
 WEIGHT_EVAL_INTERVAL = 86400       # [FEAT3] re-evaluate weights daily (seconds)
 WEIGHT_MIN_FLOOR     = 0.05        # [FEAT3] no model drops below 5% weight
@@ -1108,6 +1108,8 @@ async def fetch_weather_forecast_async(city: str) -> dict:
     coords = CITY_COORDS[city]
     session = await _get_aio_session()  # [FEAT3] reuse shared session
     effective_weights = _get_effective_weights()  # [FEAT3] dynamic or static weights
+    # [v4.31-fix4] Stagger model fetches to avoid open-meteo 429 burst
+    await asyncio.sleep(0.3)
     results = await asyncio.gather(
         *[_fetch_model_async(session, coords, m, w)
           for m, w in effective_weights],
@@ -2519,7 +2521,7 @@ async def check_position_exit(client):
             if exit_fraction <= 0:
                 continue
             exit_size = round(size * exit_fraction, 2)
-            if exit_size < 1.0:
+            if exit_size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
                 continue
             sell_price = get_best_bid_for_token(token_id, client)
             if sell_price and sell_price > 0.01:
@@ -2538,6 +2540,8 @@ async def check_position_exit(client):
                               city=city, strategy="STOPLOSS")  # [C1-FIX]
             if not _exit_ok:
                 log.warning(f"POSITION_EXIT NOT SUBMITTED [{exit_tier}] {title[:40]}")
+                # [v4.31-fix3] Mark pending to prevent hammering on balance desync
+                STATE._sl_pending[token_id] = time.time()
     except Exception as _e:
         log.warning(f"POSITION_EXIT ERROR: {_e}")
 
@@ -2647,6 +2651,9 @@ async def check_position_stoploss(client):
                     continue
 
                 city = "seoul" if "seoul" in title.lower() else "london"
+                if size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
+                    log.info(f"STOPLOSS SKIP {title[:40]}: size={size:.2f} < 5 contracts minimum")
+                    continue
                 sell_price = max(0.01, cur_price - 0.002)  # leggermente sotto per fill rapido
                 sell_notional = size * sell_price
 
@@ -3692,7 +3699,8 @@ class SelfMonitor:
             self._edge_cache = {}
         self._ledgered_ids: set = set()    # [LEDGER] fill_ids already written
         self._resolved_keys: set = set()  # [DEDUP] (token_id, round(entry_ts,1)) already written
-        self._ledger_load_known_ids()     # [LEDGER] restart-safe dedup
+        self._trade_index: dict = {}       # [v4.30-memfix] token_id -> [TradeRecord] persistent across eviction
+        self._ledger_load_known_ids()     # [LEDGER] restart-safe dedup + state recovery
         self._load_state()
 
     # ── [SM-1] REGISTRAZIONE TRADE ───────────────────────────────
@@ -3707,13 +3715,15 @@ class SelfMonitor:
             log.warning(f"LEDGER WRITE ERROR: {_le}")
 
     def _ledger_load_known_ids(self):
-        """Re-populate _ledgered_ids from trades.jsonl on restart (dedup guard).
-        Reads at most the last 5000 lines to cap startup cost."""
+        """[v4.30-memfix-r1] Re-populate dedup sets AND rebuild _trade_index
+        from trades.jsonl on restart, so in-flight positions survive restarts
+        and the 500-record rolling window eviction."""
         try:
             if not os.path.exists(self.LEDGER_FILE):
                 return
             with open(self.LEDGER_FILE, "r", encoding="utf-8") as _lf:
                 _lines = _lf.readlines()
+            _raw_entries: dict = {}   # token_id -> [TradeRecord]
             for _line in _lines[-5000:]:
                 _line = _line.strip()
                 if not _line:
@@ -3723,15 +3733,47 @@ class SelfMonitor:
                     _fid = _obj.get("fill_id")
                     if _fid:
                         self._ledgered_ids.add(str(_fid))
+                    _ev = _obj.get("event")
                     # [DEDUP] load already-written RESOLUTION keys
-                    if _obj.get("event") == "RESOLUTION":
+                    if _ev == "RESOLUTION":
                         _rk_tid = _obj.get("token_id", "")
                         _rk_ts  = _obj.get("entry_ts", 0.0)
                         if _rk_tid and _rk_ts:
                             self._resolved_keys.add((_rk_tid, round(float(_rk_ts), 1)))
+                    # [v4.30-memfix-r1] Reconstruct TradeRecord from ENTRY lines
+                    elif _ev == "ENTRY" and _obj.get("side", "BUY") == "BUY":
+                        _tid = _obj.get("token_id", "")
+                        _px  = float(_obj.get("price", 0) or 0)
+                        _sz  = float(_obj.get("notional_usd", 0) or 0)
+                        _ts  = float(_obj.get("ts", 0) or 0)
+                        if _tid and _px > 1e-9 and _sz > 0 and _ts > 0:
+                            _tr = TradeRecord(
+                                ts=_ts, token_id=_tid,
+                                strategy=_obj.get("strategy", "MM"),
+                                city=_obj.get("city", ""),
+                                bucket=_obj.get("bucket", ""),
+                                side="BUY", price=_px, size=_sz,
+                                T_days=float(_obj.get("Tdays", 1.0) or 1.0),
+                                edge_entry=float(_obj.get("edge_entry", 0) or 0),
+                            )
+                            _raw_entries.setdefault(_tid, []).append(_tr)
                 except Exception:
                     pass
-            log.info(f"LEDGER: {len(self._ledgered_ids)} fill_ids, {len(self._resolved_keys)} resolved_keys loaded")
+            # Cross-reference with resolved_keys to mark settled entries
+            _recovered = 0
+            for _tid, _recs in _raw_entries.items():
+                for _tr in _recs:
+                    _rk = (_tid, round(_tr.ts, 1))
+                    if _rk in self._resolved_keys:
+                        _tr.resolved = True
+                    else:
+                        _recovered += 1
+                    self._trade_index.setdefault(_tid, []).append(_tr)
+            log.info(
+                f"LEDGER: {len(self._ledgered_ids)} fill_ids, "
+                f"{len(self._resolved_keys)} resolved_keys, "
+                f"{_recovered} unresolved entries recovered into _trade_index"
+            )
         except Exception as _le:
             log.warning(f"LEDGER LOAD ERROR: {_le}")
 
@@ -3799,9 +3841,13 @@ class SelfMonitor:
             "sizing_mode":     sizing_mode,           # [QUANT]
             "exit_reason":     strategy if side == "SELL" else None,
             "condition_id":    getattr(STATE, "_fill_cid_cache", {}).get(token_id, None),  # [P1D]
+            "version":         "v2-bias-patch-stable",  # [v4.29-bias] dashboard filter tag
         })
         if _fid:
             self._ledgered_ids.add(_fid)
+        # [v4.30-memfix] Persist BUY entries in _trade_index (immune to 500-cap eviction)
+        if side == "BUY":
+            self._trade_index.setdefault(token_id, []).append(r)
 
     def record_resolution(self, token_id: str, resolved_yes: bool):
         """Compila PnL per tutti i fill aperti su questo token.
@@ -3809,8 +3855,17 @@ class SelfMonitor:
         Correct PnL: BUY+YES = payout - cost = (notional/price)*1 - notional
                       BUY+NO  = -notional (total loss of cost basis)
         """
-        for r in self.trades:
+        # [v4.30-memfix] Check both rolling window AND persistent index
+        _all_records = list(self.trades)
+        for _idx_r in self._trade_index.get(token_id, []):
+            if _idx_r not in _all_records:
+                _all_records.append(_idx_r)
+        for r in _all_records:
             if r.token_id == token_id and not r.resolved:
+                # [v4.31-fix1] SELLs are exit fills, never open positions — skip oracle PnL
+                if r.side == "SELL":
+                    r.resolved = True  # mark so it won't be re-checked
+                    continue
                 r.resolved = True
                 # [v4.27-mathfix] contracts = notional / price; payout = contracts * $1
                 _contracts = r.size / r.price if r.price > 1e-9 else 0.0
@@ -3843,6 +3898,7 @@ class SelfMonitor:
                     "Tdays":        round(r.T_days, 4),
                     "edge_entry":   round(r.edge_entry, 6),
                     "resolved":     True,
+                    "version":      "v2-bias-patch-stable",  # [v4.29-bias] dashboard filter tag
                 })
                 self._resolved_keys.add(_rk)
 
