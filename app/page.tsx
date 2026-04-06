@@ -795,6 +795,10 @@ export default function LariantTerminal() {
   // version="v2-bias-patch-stable" + event="ENTRY" records only
   const [phase2Count,  setPhase2Count]  = useState<number>(0);
   const [phase2Edge,   setPhase2Edge]   = useState<number>(0);
+  // V5 market microstructure — sourced from S3 v5_book_data.jsonl
+  // Zero-defaults: safe to render before first S3 response arrives
+  const [bookLon, setBookLon] = useState({ spreadBp: 0, bidDepthUsd: 0, fairProb: 0 });
+  const [bookSeo, setBookSeo] = useState({ spreadBp: 0, bidDepthUsd: 0, fairProb: 0 });
   const [tradePnls,    setTradePnls]    = useState<TradeRecord[]>([]);
   const [loadingPnl,   setLoadingPnl]   = useState(false);
   const [pnlFetched,   setPnlFetched]   = useState(false);
@@ -857,6 +861,8 @@ export default function LariantTerminal() {
           sigmaSeo:         number;
           phase2EntryCount: number;
           phase2AvgEdge:    number;
+          bookLon:          { spreadBp: number; bidDepthUsd: number; fairProb: number };
+          bookSeo:          { spreadBp: number; bidDepthUsd: number; fairProb: number };
         } = await res.json();
 
         if (cancelled) return;
@@ -884,9 +890,13 @@ export default function LariantTerminal() {
         // ── Override positions from S3 positions.json ──────────────────────
         // S3 includes edgeEntry; Polymarket API does not.
         // If S3 returns an empty array, fall through to Polymarket state.
+        // V5 book data — always update regardless of positions array
+        if (data.bookLon) setBookLon(data.bookLon);
+        if (data.bookSeo) setBookSeo(data.bookSeo);
+
         if (Array.isArray(data.positions) && data.positions.length > 0) {
           setPositions(data.positions);
-          log(`S3: ${data.positions.length} pos | σLON=${data.sigmaLon} σSEO=${data.sigmaSeo} | P2 ${data.phase2EntryCount}/300 edge=${(data.phase2AvgEdge * 100).toFixed(2)}%`);
+          log(`S3: ${data.positions.length} pos | σLON=${data.sigmaLon} σSEO=${data.sigmaSeo} | P2 ${data.phase2EntryCount}/300 edge=${(data.phase2AvgEdge * 100).toFixed(2)}% | V5 LON ${data.bookLon?.spreadBp ?? 0}bp SEO ${data.bookSeo?.spreadBp ?? 0}bp`);
         }
       } catch (err: unknown) {
         // Non-fatal: S3 API not reachable — existing state (Polymarket) persists
@@ -1236,6 +1246,100 @@ export default function LariantTerminal() {
       {/* Seoul EV Map — sigma from Phase 2a calibration matrix */}
       <InferenceChart city="SEOUL SHADOW NODE" code="SEO"
         forecast={fcastSeo} map={mapSeo} sigma={sigmaSeo} />
+
+      {/* ── V5 Market Microstructure Widget ──────────────────────────────── */}
+      {/* Sourced from S3 v5_book_data.jsonl written by EC2 bot.             */}
+      {/* Zero-state is shown (grayed) until first S3 poll returns data.     */}
+      {(() => {
+        const hasData = bookLon.spreadBp > 0 || bookSeo.spreadBp > 0;
+        const fmtBp   = (v: number) => v > 0 ? `${v.toFixed(1)} bp` : '—';
+        const fmtUsd  = (v: number) => v > 0 ? `$${v.toFixed(0)}` : '—';
+        const fmtProb = (v: number) => v > 0 ? `${(v * 100).toFixed(1)}%` : '—';
+
+        // Fair-prob colour: green if close to 50% (liquid), red if extreme
+        const probColor = (v: number) => {
+          if (v <= 0) return '#3a3a3a';
+          const dist = Math.abs(v - 0.5);
+          return dist < 0.15 ? '#9fff88' : dist < 0.3 ? '#f59e0b' : '#ff706f';
+        };
+
+        return (
+          <section className="border border-[#262626] bg-[#050505] p-4 space-y-3">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-[#1a1a1a] pb-2">
+              <span className="uppercase tracking-widest opacity-50 text-[9px]">Market Microstructure</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse"
+                  style={{ background: hasData ? '#9fff88' : '#3a3a3a' }} />
+                <span className="text-[8px] font-mono uppercase"
+                  style={{ color: hasData ? '#9fff88' : '#3a3a3a' }}>
+                  {hasData ? 'V5 LIVE' : 'AWAITING DATA'}
+                </span>
+              </div>
+            </div>
+
+            {/* Two-column city grid */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {/* — LON — */}
+              <div className="space-y-2">
+                <span className="block text-[7px] uppercase tracking-widest opacity-30 border-b border-[#1a1a1a] pb-1">
+                  LONDON
+                </span>
+                <div>
+                  <span className="block text-[7px] uppercase opacity-30 mb-0.5">Spread</span>
+                  <span className="font-mono text-[10px]" style={{ color: hasData ? '#ababab' : '#3a3a3a' }}>
+                    {fmtBp(bookLon.spreadBp)}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[7px] uppercase opacity-30 mb-0.5">Bid Depth</span>
+                  <span className="font-mono text-[10px]" style={{ color: hasData ? '#ababab' : '#3a3a3a' }}>
+                    {fmtUsd(bookLon.bidDepthUsd)}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[7px] uppercase opacity-30 mb-0.5">Fair Prob</span>
+                  <span className="font-mono text-[11px] font-bold" style={{ color: probColor(bookLon.fairProb) }}>
+                    {fmtProb(bookLon.fairProb)}
+                  </span>
+                </div>
+              </div>
+
+              {/* — SEO — */}
+              <div className="space-y-2">
+                <span className="block text-[7px] uppercase tracking-widest opacity-30 border-b border-[#1a1a1a] pb-1">
+                  SEOUL
+                </span>
+                <div>
+                  <span className="block text-[7px] uppercase opacity-30 mb-0.5">Spread</span>
+                  <span className="font-mono text-[10px]" style={{ color: hasData ? '#ababab' : '#3a3a3a' }}>
+                    {fmtBp(bookSeo.spreadBp)}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[7px] uppercase opacity-30 mb-0.5">Bid Depth</span>
+                  <span className="font-mono text-[10px]" style={{ color: hasData ? '#ababab' : '#3a3a3a' }}>
+                    {fmtUsd(bookSeo.bidDepthUsd)}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[7px] uppercase opacity-30 mb-0.5">Fair Prob</span>
+                  <span className="font-mono text-[11px] font-bold" style={{ color: probColor(bookSeo.fairProb) }}>
+                    {fmtProb(bookSeo.fairProb)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Version tag */}
+            <div className="flex justify-end">
+              <span className="text-[7px] font-mono px-1.5 py-0.5 border border-[#1a1a1a] opacity-30">
+                v5-book-data
+              </span>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Event Log */}
       <section className="border border-[#262626] bg-[#020202] p-3 flex flex-col" style={{ height: '9rem' }}>
