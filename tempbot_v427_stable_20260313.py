@@ -174,6 +174,7 @@ import family_risk  # [FAMILY] family-level risk gate
 # [v4.32-ML] LightGBM edge weighting — optional, graceful fallback
 try:
     import joblib as _joblib
+    _warnings_early.filterwarnings("ignore", category=UserWarning, module="sklearn")  # [v4.32-ML] silence sklearn feature-name noise
     _ML_MODEL = _joblib.load("/home/ubuntu/polymarket-temp-bot/modello_final_lightgbm.joblib")
     print(f"[ML] Modello caricato OK — {_ML_MODEL.n_features_in_} feature")
 except Exception as _ml_err:
@@ -201,6 +202,59 @@ def ml_weight_edge(edge: float, mid: float, city: str, T: float) -> float:
         return weighted
     except Exception as _e:
         return edge  # [v4.32-ML] fallback silenzioso
+
+# ── [CB-v1] Circuit Breaker — globals ────────────────────────────────────────
+from collections import deque as _deque
+_edge_decay_window: _deque = _deque(maxlen=10)
+_latency_fail_count: int   = 0
+_latency_blocked:    bool  = False
+_consecutive_losses: int   = 0
+_cb_loss_blocked_until: float = 0.0
+
+def _edge_decay_guard() -> bool:
+    """[CB-v1] Blocca se ultimi 5 fill hanno edge entry negativo."""
+    if len(_edge_decay_window) < 5:
+        return True
+    if all(e < 0 for e in list(_edge_decay_window)[-5:]):
+        log.warning("[CB-EDGE] 5 edge negativi consecutivi — skip MM")
+        return False
+    return True
+
+def _consecutive_loss_guard() -> bool:
+    """[CB-v1] Blocca per 1h dopo 4 stoploss consecutivi."""
+    if time.time() < _cb_loss_blocked_until:
+        remaining = int(_cb_loss_blocked_until - time.time()) // 60
+        log.debug(f"[CB-LOSS] Blocco attivo — {remaining}min rimasti")
+        return False
+    return True
+
+async def _latency_guard_loop(client):
+    """[CB-v1] Monitora latenza CLOB ogni 60s; blocca MM se 3 fail consecutivi."""
+    global _latency_fail_count, _latency_blocked
+    while True:
+        await asyncio.sleep(60)
+        try:
+            t0 = time.monotonic()
+            await asyncio.wait_for(
+                asyncio.get_running_loop().run_in_executor(
+                    None, lambda: client.get_markets(next_cursor="")),
+                timeout=2.0
+            )
+            latency_ms = (time.monotonic() - t0) * 1000
+            if latency_ms > 500:
+                _latency_fail_count += 1
+                log.warning(f"[CB-LAT] Alta latenza {latency_ms:.0f}ms (#{_latency_fail_count})")
+            else:
+                _latency_fail_count = 0
+                _latency_blocked = False
+        except Exception as _cb_e:
+            _latency_fail_count += 1
+            log.warning(f"[CB-LAT] Ping fallito: {_cb_e}")
+        if _latency_fail_count >= 3:
+            _latency_blocked = True
+            log.error("[CB-LAT] LatencyGuard ATTIVO — 3 fail consecutivi")
+        else:
+            _latency_blocked = False
 
 # ── Global state instances (single source of truth) ──────────
 STATE  = PortfolioState()
@@ -2162,6 +2216,7 @@ async def update_pnl_from_fills(client):  # [v4.17-fix-pnl] converted to async
                 bucket_fill   = order_meta.get("bucket_key", "fill_confirmed")
                 T_fill        = order_meta.get("T", 1.0)
                 edge_fill     = getattr(MONITOR, '_edge_cache', {}).get(token_id_fill, order_meta.get("edge", 0.0))  # [EDGE]
+                _edge_decay_window.append(edge_fill)  # [CB-v1] feed EdgeDecayGuard
                 # [QUANT] read full evaluation snapshot captured at order time
                 _qm = _quant_meta_cache.get(token_id_fill, {})
                 MONITOR.record_trade(token_id_fill, strategy_fill, city_fill,
@@ -2533,6 +2588,7 @@ async def check_position_exit(client):
                 exit_fraction = 1.0
                 exit_tier = f"TIER0_TIME T={T_hours:.2f}h<{MIN_T_HOURS}h"
             elif pnl_pct >= TAKE_PROFIT_PCT * 100:
+                _consecutive_losses = 0  # [CB-v1] reset on profit
                 exit_fraction = 1.0
                 exit_tier = f"TIER1_PROFIT pnl={pnl_pct:.1f}%>={TAKE_PROFIT_PCT*100:.0f}%"
             elif T_hours < 12.0 and cur_price > 0.01 and not p.get("redeemable", False):
@@ -2635,6 +2691,16 @@ async def check_position_stoploss(client):
 
             # Stoploss: vendi se perdita > STOPLOSS_POSITION_PCT
             if pnl_pct < -(STOPLOSS_POSITION_PCT * 100):
+                # [CB-v1] ConsecutiveLossGuard counter
+                global _consecutive_losses, _cb_loss_blocked_until
+                _consecutive_losses += 1
+                if _consecutive_losses >= 4:
+                    _cb_loss_blocked_until = time.time() + 3600
+                    log.error(
+                        f"[CB-LOSS] {_consecutive_losses} SL consecutivi — "
+                        f"blocco 1h fino a "
+                        f"{time.strftime('%H:%M', time.localtime(_cb_loss_blocked_until))}"
+                    )
                 # [FIX-A] Guard: if a SELL was already fired for this token and the position
                 # is still visible (not yet confirmed filled), skip until TTL expires.
                 # Prevents the same bucket being stop-sold every 120s in a loop.
@@ -3509,6 +3575,14 @@ async def trading_loop(client, args, CAPITAL_ref: list):
 
                     # [v4.6-audit] Becker zone gating
                     if mid < BECKER_BUY_ZONE_MAX:
+                        # [CB-v1] Circuit Breaker guards
+                        if _latency_blocked:
+                            log.debug(f"[CB-SKIP] LatencyGuard ({_latency_fail_count} fail)")
+                            return
+                        if not _edge_decay_guard():
+                            return
+                        if not _consecutive_loss_guard():
+                            return
                         # [FAMILY] Family-level risk gate
                         _fam_pos = {t: {"size": p.size, "avg_price": p.avg_price,
                                         "notional": p.notional, "city": p.city,
@@ -3566,6 +3640,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                                 "edge":        round(directional_edge, 4),
                                 "kelly_frac":  _quant_meta_cache.get(tid, {}).get("kelly_frac", 0.0),
                                 "sizing_mode": "kelly",
+                                "cb_version":  "cb-v1",  # [CB-v1]
                             }
                             if bucket.get("type") == "exact":  # [v4.27-C]
                                 _adjacent_exact_registry.setdefault(
@@ -4556,6 +4631,8 @@ async def main_async(args):
             api_secret     = os.getenv("PM_API_SECRET"),
             api_passphrase = os.getenv("PM_API_PASSPHRASE"),
         ))
+        asyncio.create_task(_latency_guard_loop(client))  # [CB-v1]
+        log.info("[CB-LAT] LatencyGuard task avviato")
 
     # [v4.11-B1] Capital: verifica sempre il valore API reale all'avvio.
     # Il vecchio max(env, api) causava leva implicita 5.8x: con $13 reali
