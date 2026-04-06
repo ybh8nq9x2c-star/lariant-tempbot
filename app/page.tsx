@@ -869,6 +869,17 @@ export default function LariantTerminal() {
           bookSeo:          { spreadBp: number; bidDepthUsd: number; fairProb: number };
         } = await res.json();
 
+        // DEBUG — full response snapshot on every poll so Railway logs show the
+        // exact shape received, making it immediately obvious if V5 fields are
+        // missing (PROXY mode) or if s3Available is unexpectedly false.
+        console.log('[S3 API] response:', JSON.stringify({
+          s3Available:      data.s3Available,
+          positionsLen:     data.positions?.length ?? 'MISSING',
+          v5BookEntryCount: data.v5BookEntryCount ?? 'MISSING FIELD',
+          bookLon:          data.bookLon          ?? 'MISSING FIELD',
+          bookSeo:          data.bookSeo          ?? 'MISSING FIELD',
+        }));
+
         if (cancelled) return;
 
         if (!data.s3Available) {
@@ -899,9 +910,18 @@ export default function LariantTerminal() {
         if (data.bookSeo) setBookSeo(data.bookSeo);
         if (isFinite(data.v5BookEntryCount)) setV5BookCount(data.v5BookEntryCount);
 
+        // Log V5 status on EVERY poll — detached from positions guard so the
+        // widget counter is always visible in the Event Log even when the bot
+        // has no open positions.
+        log(
+          `S3: pos=${data.positions?.length ?? 0} | ` +
+          `σLON=${data.sigmaLon} σSEO=${data.sigmaSeo} | ` +
+          `V5 ${data.v5BookEntryCount}/500 | ` +
+          `LON ${data.bookLon?.spreadBp ?? 0}bp SEO ${data.bookSeo?.spreadBp ?? 0}bp`
+        );
+
         if (Array.isArray(data.positions) && data.positions.length > 0) {
           setPositions(data.positions);
-          log(`S3: ${data.positions.length} pos | σLON=${data.sigmaLon} σSEO=${data.sigmaSeo} | V5 ${data.v5BookEntryCount}/500 | LON ${data.bookLon?.spreadBp ?? 0}bp SEO ${data.bookSeo?.spreadBp ?? 0}bp`);
         }
       } catch (err: unknown) {
         // Non-fatal: S3 API not reachable — existing state (Polymarket) persists

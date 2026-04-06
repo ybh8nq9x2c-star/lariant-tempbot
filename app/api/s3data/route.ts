@@ -235,6 +235,12 @@ export const revalidate = 0;              // disable ISR — force every request
 export async function GET(): Promise<NextResponse> {
   // ── Option A: proxy to the Python s3_api.py sidecar (if configured) ────────
   const proxyUrl = process.env.S3_API_URL;
+  // Diagnostic: log which execution path this request will take
+  console.log(
+    `[s3data] mode=${proxyUrl ? 'PROXY→' + proxyUrl : 'DIRECT-AWS'} ` +
+    `bucket=${process.env.S3_BUCKET ?? 'NOT_SET'} ` +
+    `bookKey=${process.env.S3_BOOK_KEY ?? 'v5_book_data.jsonl'}`
+  );
   if (proxyUrl) {
     try {
       const res = await fetch(`${proxyUrl}/api/s3data`, { cache: 'no-store' });
@@ -269,14 +275,32 @@ export async function GET(): Promise<NextResponse> {
   try {
     const client = getS3Client();
 
-    // Fetch all three objects in parallel.
-    // v5_book_data.jsonl is allowed to not exist yet — a rejection is caught
-    // individually so it never aborts positions/trades delivery.
+    // Fetch all three objects in parallel — each has its own .catch() so a
+    // single missing/failing file never poisons the others.
     const [positionsRaw, tradesRaw, bookRaw] = await Promise.all([
-      fetchS3Object(client, bucket, posKey),
-      fetchS3Object(client, bucket, tradesKey),
-      fetchS3Object(client, bucket, bookKey).catch(() => ''), // safe: returns '' if missing
+      fetchS3Object(client, bucket, posKey)
+        .catch((e: Error) => {
+          console.error(`[s3data] FAIL positions (${posKey}):`, e.message);
+          return '[]';
+        }),
+      fetchS3Object(client, bucket, tradesKey)
+        .catch((e: Error) => {
+          console.error(`[s3data] FAIL trades (${tradesKey}):`, e.message);
+          return '';
+        }),
+      fetchS3Object(client, bucket, bookKey)
+        .catch((e: Error) => {
+          console.error(`[s3data] FAIL book (${bookKey}):`, e.message);
+          return '';
+        }),
     ]);
+
+    // Diagnostic: raw byte sizes confirm what actually arrived from S3
+    console.log(
+      `[s3data] RAW sizes — positions=${positionsRaw.length}B ` +
+      `trades=${tradesRaw.length}B ` +
+      `book=${bookRaw.length}B`
+    );
 
     const rawPositions = parsePositions(positionsRaw);
     const positions    = rawPositions.map(mapPosition);
