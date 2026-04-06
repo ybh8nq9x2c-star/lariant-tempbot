@@ -15,11 +15,26 @@
  *   S3_POSITIONS_KEY        (default: positions.json)
  *   S3_TRADES_KEY           (default: trades.jsonl)
  *
- * Optional — set to use the Python s3_api.py sidecar instead of this route:
- *   S3_API_URL   e.g. http://localhost:8000
+ * Optional:
+ *   S3_BOOK_KEY             (default: v5_book_data.jsonl)
+ *     V5 market microstructure snapshots written by the EC2 bot.
+ *     Each line is a JSON object with fields:
+ *       spread_bp    — bid/ask spread in basis points
+ *       bid_depth_usd — USD depth on the bid side
+ *       fair_prob    — mid-market implied probability (0–1)
+ *       city         — 'LON' | 'SEO'
+ *       ts           — ISO timestamp
+ *     If the file does not exist, the route returns safe zero-defaults.
  *
- * Response schema (mirrors s3_api.py):
- *   { s3Available, positions, sigmaLon, sigmaSeo }
+ *   S3_API_URL   e.g. http://localhost:8000
+ *     Set to proxy to the Python s3_api.py sidecar instead of this route.
+ *
+ * Response schema:
+ *   {
+ *     s3Available, positions, sigmaLon, sigmaSeo,
+ *     phase2EntryCount, phase2AvgEdge,
+ *     bookSpreadBp, bookBidDepthUsd, bookFairProb   ← V5 additions
+ *   }
  */
 
 import { NextResponse }    from 'next/server';
@@ -101,6 +116,50 @@ function computePhase2Metrics(trades: Record<string, unknown>[]): {
     phase2EntryCount: v2Entries.length,
     phase2AvgEdge:    +avgEdge.toFixed(6),
   };
+}
+
+// ── V5 Market Microstructure ──────────────────────────────────────────────────
+/**
+ * Shape returned for each city's latest book snapshot.
+ * All fields default to 0 / null when no data is available so callers
+ * never need to guard against undefined.
+ */
+interface BookSnapshot {
+  spreadBp:    number;   // bid/ask spread in basis points
+  bidDepthUsd: number;   // USD depth on bid side
+  fairProb:    number;   // mid-market implied probability (0–1)
+}
+
+const EMPTY_BOOK: BookSnapshot = { spreadBp: 0, bidDepthUsd: 0, fairProb: 0 };
+
+/**
+ * Parse v5_book_data.jsonl — each line is a JSON snapshot.
+ * Strategy: walk lines oldest→newest, keep LAST snapshot per city so we
+ * always expose the most recent microstructure state.
+ * Safe: any malformed line is silently skipped; missing file → empty map.
+ */
+function parseBookData(raw: string): Record<string, BookSnapshot> {
+  const result: Record<string, BookSnapshot> = {};
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    try {
+      const obj = JSON.parse(line) as Record<string, unknown>;
+      const city = String(obj.city ?? '').toUpperCase().trim();
+      if (!city) continue;
+
+      const toNum = (v: unknown, def = 0): number => {
+        const n = parseFloat(String(v ?? def));
+        return isFinite(n) ? n : def;
+      };
+
+      result[city] = {
+        spreadBp:    toNum(obj.spread_bp),
+        bidDepthUsd: toNum(obj.bid_depth_usd),
+        fairProb:    toNum(obj.fair_prob),
+      };
+    } catch { /* skip malformed line */ }
+  }
+  return result;
 }
 
 /** Walk trades oldest→newest; last sigma_used per city wins. */
@@ -185,19 +244,25 @@ export async function GET(): Promise<NextResponse> {
       sigmaSeo:         2.8,
       phase2EntryCount: 0,
       phase2AvgEdge:    0,
+      bookLon:          EMPTY_BOOK,
+      bookSeo:          EMPTY_BOOK,
     });
   }
 
   const posKey    = process.env.S3_POSITIONS_KEY ?? 'positions.json';
   const tradesKey = process.env.S3_TRADES_KEY    ?? 'trades.jsonl';
+  const bookKey   = process.env.S3_BOOK_KEY      ?? 'v5_book_data.jsonl';
 
   try {
     const client = getS3Client();
 
-    // Fetch both objects in parallel
-    const [positionsRaw, tradesRaw] = await Promise.all([
+    // Fetch all three objects in parallel.
+    // v5_book_data.jsonl is allowed to not exist yet — a rejection is caught
+    // individually so it never aborts positions/trades delivery.
+    const [positionsRaw, tradesRaw, bookRaw] = await Promise.all([
       fetchS3Object(client, bucket, posKey),
       fetchS3Object(client, bucket, tradesKey),
+      fetchS3Object(client, bucket, bookKey).catch(() => ''), // safe: returns '' if missing
     ]);
 
     const rawPositions = parsePositions(positionsRaw);
@@ -206,10 +271,16 @@ export async function GET(): Promise<NextResponse> {
     const sigma        = latestSigma(trades);
     const phase2       = computePhase2Metrics(trades);
 
+    // V5 book data — keyed by city ('LON', 'SEO')
+    const book    = parseBookData(bookRaw);
+    const bookLon = book['LON'] ?? EMPTY_BOOK;
+    const bookSeo = book['SEO'] ?? EMPTY_BOOK;
+
     console.log(
       `[s3data] OK — ${positions.length} positions | ` +
       `σLON=${sigma['LON'] ?? 2.2} σSEO=${sigma['SEO'] ?? 2.8} | ` +
-      `Phase2 entries=${phase2.phase2EntryCount}/300 avgEdge=${(phase2.phase2AvgEdge * 100).toFixed(2)}%`,
+      `Phase2 entries=${phase2.phase2EntryCount}/300 avgEdge=${(phase2.phase2AvgEdge * 100).toFixed(2)}% | ` +
+      `V5 book LON spread=${bookLon.spreadBp}bp SEO spread=${bookSeo.spreadBp}bp`,
     );
 
     return NextResponse.json({
@@ -219,6 +290,9 @@ export async function GET(): Promise<NextResponse> {
       sigmaSeo:         sigma['SEO'] ?? 2.8,
       phase2EntryCount: phase2.phase2EntryCount,
       phase2AvgEdge:    phase2.phase2AvgEdge,
+      // V5 market microstructure — zero-defaults when file absent
+      bookLon: { spreadBp: bookLon.spreadBp, bidDepthUsd: bookLon.bidDepthUsd, fairProb: bookLon.fairProb },
+      bookSeo: { spreadBp: bookSeo.spreadBp, bidDepthUsd: bookSeo.bidDepthUsd, fairProb: bookSeo.spreadBp },
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -226,7 +300,9 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json(
       {
         s3Available: false, positions: [], sigmaLon: 2.2, sigmaSeo: 2.8,
-        phase2EntryCount: 0, phase2AvgEdge: 0, error: msg,
+        phase2EntryCount: 0, phase2AvgEdge: 0,
+        bookLon: EMPTY_BOOK, bookSeo: EMPTY_BOOK,
+        error: msg,
       },
       { status: 200 },
     );
