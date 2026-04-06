@@ -134,16 +134,27 @@ const EMPTY_BOOK: BookSnapshot = { spreadBp: 0, bidDepthUsd: 0, fairProb: 0 };
 
 /**
  * Parse v5_book_data.jsonl — each line is a JSON snapshot.
- * Strategy: walk lines oldest→newest, keep LAST snapshot per city so we
- * always expose the most recent microstructure state.
- * Safe: any malformed line is silently skipped; missing file → empty map.
+ *
+ * Returns:
+ *   snapshots   — latest BookSnapshot per city (oldest→newest, last wins)
+ *   entryCount  — total number of valid (parseable) lines in the file.
+ *                 Used by the UI widget as the V5 dataset progress counter.
+ *
+ * Safe: any malformed line is silently skipped; missing file (raw='') → 0.
  */
-function parseBookData(raw: string): Record<string, BookSnapshot> {
-  const result: Record<string, BookSnapshot> = {};
+function parseBookData(raw: string): {
+  snapshots:   Record<string, BookSnapshot>;
+  entryCount:  number;
+} {
+  const snapshots: Record<string, BookSnapshot> = {};
+  let entryCount = 0;
+
   const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
   for (const line of lines) {
     try {
       const obj = JSON.parse(line) as Record<string, unknown>;
+      entryCount++; // count every successfully parsed line
+
       const city = String(obj.city ?? '').toUpperCase().trim();
       if (!city) continue;
 
@@ -152,14 +163,15 @@ function parseBookData(raw: string): Record<string, BookSnapshot> {
         return isFinite(n) ? n : def;
       };
 
-      result[city] = {
+      snapshots[city] = {
         spreadBp:    toNum(obj.spread_bp),
         bidDepthUsd: toNum(obj.bid_depth_usd),
         fairProb:    toNum(obj.fair_prob),
       };
     } catch { /* skip malformed line */ }
   }
-  return result;
+
+  return { snapshots, entryCount };
 }
 
 /** Walk trades oldest→newest; last sigma_used per city wins. */
@@ -244,6 +256,7 @@ export async function GET(): Promise<NextResponse> {
       sigmaSeo:         2.8,
       phase2EntryCount: 0,
       phase2AvgEdge:    0,
+      v5BookEntryCount: 0,
       bookLon:          EMPTY_BOOK,
       bookSeo:          EMPTY_BOOK,
     });
@@ -272,15 +285,15 @@ export async function GET(): Promise<NextResponse> {
     const phase2       = computePhase2Metrics(trades);
 
     // V5 book data — keyed by city ('LON', 'SEO')
-    const book    = parseBookData(bookRaw);
+    const { snapshots: book, entryCount: v5BookEntryCount } = parseBookData(bookRaw);
     const bookLon = book['LON'] ?? EMPTY_BOOK;
     const bookSeo = book['SEO'] ?? EMPTY_BOOK;
 
     console.log(
       `[s3data] OK — ${positions.length} positions | ` +
       `σLON=${sigma['LON'] ?? 2.2} σSEO=${sigma['SEO'] ?? 2.8} | ` +
-      `Phase2 entries=${phase2.phase2EntryCount}/300 avgEdge=${(phase2.phase2AvgEdge * 100).toFixed(2)}% | ` +
-      `V5 book LON spread=${bookLon.spreadBp}bp SEO spread=${bookSeo.spreadBp}bp`,
+      `Phase2 entries=${phase2.phase2EntryCount} avgEdge=${(phase2.phase2AvgEdge * 100).toFixed(2)}% | ` +
+      `V5 book entries=${v5BookEntryCount}/500 LON spread=${bookLon.spreadBp}bp SEO spread=${bookSeo.spreadBp}bp`,
     );
 
     return NextResponse.json({
@@ -290,9 +303,11 @@ export async function GET(): Promise<NextResponse> {
       sigmaSeo:         sigma['SEO'] ?? 2.8,
       phase2EntryCount: phase2.phase2EntryCount,
       phase2AvgEdge:    phase2.phase2AvgEdge,
-      // V5 market microstructure — zero-defaults when file absent
+      // V5 dataset collection counter — total parsed lines in v5_book_data.jsonl
+      v5BookEntryCount,
+      // V5 market microstructure latest snapshot per city — zero-defaults when file absent
       bookLon: { spreadBp: bookLon.spreadBp, bidDepthUsd: bookLon.bidDepthUsd, fairProb: bookLon.fairProb },
-      bookSeo: { spreadBp: bookSeo.spreadBp, bidDepthUsd: bookSeo.bidDepthUsd, fairProb: bookSeo.spreadBp },
+      bookSeo: { spreadBp: bookSeo.spreadBp, bidDepthUsd: bookSeo.bidDepthUsd, fairProb: bookSeo.fairProb },
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -301,6 +316,7 @@ export async function GET(): Promise<NextResponse> {
       {
         s3Available: false, positions: [], sigmaLon: 2.2, sigmaSeo: 2.8,
         phase2EntryCount: 0, phase2AvgEdge: 0,
+        v5BookEntryCount: 0,
         bookLon: EMPTY_BOOK, bookSeo: EMPTY_BOOK,
         error: msg,
       },
