@@ -20,6 +20,8 @@ interface Position {
   outcome: string;
   /** Quantitative edge at entry (from trades.jsonl via S3). Present only when S3 active. */
   edgeEntry?: number;
+  /** LightGBM win-probability (0–1) from v5 ML model. Present only when V5 ML data active. */
+  mlProba?: number;
 }
 
 interface BucketData {
@@ -621,6 +623,147 @@ function PnlChart({ trades }: { trades: TradeRecord[] }) {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// PositionCard — memoised so the 1-second clock tick in LariantTerminal never
+// causes individual cards to re-render when their position data hasn't changed.
+// Receives a single Position object and stable callbacks as props.
+// ============================================================================
+interface PositionCardProps {
+  pos: Position;
+  onGoToSettings: () => void;
+}
+
+const PositionCard = React.memo(function PositionCard({ pos }: PositionCardProps) {
+  const profit  = pos.cashPnl >= 0;
+  const pnlClr  = profit ? '#9fff88' : '#ff706f';
+  const outcome = pos.outcome?.toUpperCase() || (profit ? 'YES' : 'NO');
+  const isYes   = outcome === 'YES';
+
+  return (
+    <div className="p-3 space-y-2">
+      {/* Title + YES/NO badge */}
+      <div className="flex justify-between items-start gap-2">
+        <span className="font-bold text-white text-[10px] uppercase leading-snug flex-1 min-w-0 truncate">
+          {pos.title}
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* ML Boost badge — shown when LightGBM mlProba is present */}
+          {pos.mlProba !== undefined && (
+            <span
+              title={`ML win probability: ${(pos.mlProba * 100).toFixed(1)}%`}
+              style={{
+                fontSize: '7px',
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                color: '#000',
+                background: pos.mlProba >= 0.6 ? '#9fff88' : pos.mlProba >= 0.45 ? '#f59e0b' : '#ff706f',
+                padding: '1px 4px',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+              }}
+            >
+              ML {(pos.mlProba * 100).toFixed(0)}%
+            </span>
+          )}
+          <span className={`text-[8px] px-1.5 py-0.5 font-bold ${isYes ? 'bg-[#9fff88] text-black' : 'bg-[#ff706f] text-black'}`}>
+            {outcome}
+          </span>
+        </div>
+      </div>
+
+      {/* Grid stats */}
+      <div className="grid grid-cols-3 gap-2 text-[9px]">
+        <div>
+          <span className="block opacity-40 uppercase text-[7px] mb-0.5">Contracts</span>
+          <span>{parseFloat(pos.size as string).toFixed(2)}</span>
+        </div>
+        <div>
+          <span className="block opacity-40 uppercase text-[7px] mb-0.5">Entry → Now</span>
+          <span>{pos.entryPrice.toFixed(3)} → {pos.currentPrice.toFixed(3)}</span>
+        </div>
+        <div className="text-right">
+          <span className="block opacity-40 uppercase text-[7px] mb-0.5">Value</span>
+          <span className="text-white">{fmt(pos.currentValue)}</span>
+        </div>
+      </div>
+
+      {/* PnL row — edgeEntry slot present when S3 active */}
+      <div className="flex justify-between items-center text-[9px]">
+        <span style={{ color: pnlClr }}>
+          PnL {profit ? '+' : ''}{fmt(pos.cashPnl)}
+        </span>
+        {pos.edgeEntry !== undefined && (
+          <span style={{ color: '#6b6b6b' }}>
+            EDGE {pos.edgeEntry >= 0 ? '+' : ''}{(pos.edgeEntry * 100).toFixed(1)}%
+          </span>
+        )}
+        <span style={{ color: pnlClr }}>
+          ROI {pct(pos.percentPnl)}
+        </span>
+      </div>
+    </div>
+  );
+});
+
+// ============================================================================
+// TabPositions — module-level (NOT inside LariantTerminal).
+//
+// Previously defined as a closure inside the parent, which meant React saw a
+// brand-new component type on every render (including the 1-second clock tick).
+// This caused the entire position list to unmount+remount every second.
+//
+// Now it lives outside the parent:
+//   • React preserves the component identity across renders.
+//   • Individual PositionCard children are React.memo'd → only re-render when
+//     their specific pos object reference changes (i.e. after a real S3 poll).
+// ============================================================================
+interface TabPositionsProps {
+  positions:      Position[];
+  loadingPos:     boolean;
+  walletAddr:     string;
+  onGoToSettings: () => void;
+}
+
+function TabPositions({ positions, loadingPos, walletAddr, onGoToSettings }: TabPositionsProps) {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center px-1">
+        <span className="uppercase tracking-widest text-[10px]" style={{ color: '#9fff88' }}>
+          Active Positions
+        </span>
+        <span className="text-[9px] opacity-40">{positions.length} OPEN</span>
+      </div>
+
+      {!walletAddr ? (
+        <div className="border border-[#262626] p-6 bg-[#050505] text-center space-y-3">
+          <p className="opacity-40 uppercase tracking-widest text-[10px]">No Wallet Configured</p>
+          <button onClick={onGoToSettings}
+            className="text-[10px] uppercase tracking-widest border px-4 py-2"
+            style={{ color: '#9fff88', borderColor: '#9fff88' }}>
+            → Open Settings
+          </button>
+        </div>
+      ) : loadingPos && positions.length === 0 ? (
+        <div className="border border-[#262626] p-6 bg-[#050505] text-center">
+          <span className="text-[10px] uppercase tracking-widest animate-pulse" style={{ color: '#9fff88' }}>
+            Syncing positions…
+          </span>
+        </div>
+      ) : positions.length === 0 ? (
+        <div className="border border-[#262626] p-6 bg-[#050505] text-center opacity-40 uppercase tracking-widest text-[10px]">
+          No active positions
+        </div>
+      ) : (
+        <div className="border border-[#262626] bg-[#050505] divide-y divide-[#111]">
+          {positions.map(pos => (
+            <PositionCard key={pos.id} pos={pos} onGoToSettings={onGoToSettings} />
+          ))}
+        </div>
       )}
     </div>
   );
@@ -1268,92 +1411,6 @@ export default function LariantTerminal() {
   };
 
   // ============================================================================
-  // Tab: POSITIONS
-  // ============================================================================
-  const TabPositions = () => (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center px-1">
-        <span className="uppercase tracking-widest text-[10px]" style={{ color: '#9fff88' }}>
-          Active Positions
-        </span>
-        <span className="text-[9px] opacity-40">{positions.length} OPEN</span>
-      </div>
-
-      {!walletAddr ? (
-        <div className="border border-[#262626] p-6 bg-[#050505] text-center space-y-3">
-          <p className="opacity-40 uppercase tracking-widest text-[10px]">No Wallet Configured</p>
-          <button onClick={() => setActiveTab('settings')}
-            className="text-[10px] uppercase tracking-widest border px-4 py-2"
-            style={{ color: '#9fff88', borderColor: '#9fff88' }}>
-            → Open Settings
-          </button>
-        </div>
-      ) : loadingPos && positions.length === 0 ? (
-        <div className="border border-[#262626] p-6 bg-[#050505] text-center">
-          <span className="text-[10px] uppercase tracking-widest animate-pulse" style={{ color: '#9fff88' }}>
-            Syncing positions…
-          </span>
-        </div>
-      ) : positions.length === 0 ? (
-        <div className="border border-[#262626] p-6 bg-[#050505] text-center opacity-40 uppercase tracking-widest text-[10px]">
-          No active positions
-        </div>
-      ) : (
-        <div className="border border-[#262626] bg-[#050505] divide-y divide-[#111]">
-          {positions.map(pos => {
-            const profit      = pos.cashPnl >= 0;
-            const pnlClr      = profit ? '#9fff88' : '#ff706f';
-            const outcome     = pos.outcome?.toUpperCase() || (profit ? 'YES' : 'NO');
-            const isYes       = outcome === 'YES';
-            return (
-              <div key={pos.id} className="p-3 space-y-2">
-                {/* Title + badge */}
-                <div className="flex justify-between items-start gap-2">
-                  <span className="font-bold text-white text-[10px] uppercase leading-snug flex-1 min-w-0 truncate">
-                    {pos.title}
-                  </span>
-                  <span className={`shrink-0 text-[8px] px-1.5 py-0.5 font-bold ${isYes ? 'bg-[#9fff88] text-black' : 'bg-[#ff706f] text-black'}`}>
-                    {outcome}
-                  </span>
-                </div>
-                {/* Grid stats */}
-                <div className="grid grid-cols-3 gap-2 text-[9px]">
-                  <div>
-                    <span className="block opacity-40 uppercase text-[7px] mb-0.5">Contracts</span>
-                    <span>{parseFloat(pos.size as string).toFixed(2)}</span>
-                  </div>
-                  <div>
-                    <span className="block opacity-40 uppercase text-[7px] mb-0.5">Entry → Now</span>
-                    <span>{pos.entryPrice.toFixed(3)} → {pos.currentPrice.toFixed(3)}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block opacity-40 uppercase text-[7px] mb-0.5">Value</span>
-                    <span className="text-white">{fmt(pos.currentValue)}</span>
-                  </div>
-                </div>
-                {/* PnL row — edgeEntry slot inserted when S3 provides it */}
-                <div className="flex justify-between items-center text-[9px]">
-                  <span style={{ color: pnlClr }}>
-                    PnL {profit ? '+' : ''}{fmt(pos.cashPnl)}
-                  </span>
-                  {pos.edgeEntry !== undefined && (
-                    <span style={{ color: '#6b6b6b' }}>
-                      EDGE {pos.edgeEntry >= 0 ? '+' : ''}{(pos.edgeEntry * 100).toFixed(1)}%
-                    </span>
-                  )}
-                  <span style={{ color: pnlClr }}>
-                    ROI {pct(pos.percentPnl)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
-  // ============================================================================
   // Tab: SETTINGS
   // ============================================================================
   const TabSettings = () => (
@@ -1491,7 +1548,14 @@ export default function LariantTerminal() {
       <main className="p-3 pb-36 space-y-4 max-w-3xl mx-auto">
         {activeTab === 'terminal'  && <TabTerminal />}
         {activeTab === 'pnl'       && <TabPnl />}
-        {activeTab === 'positions' && <TabPositions />}
+        {activeTab === 'positions' && (
+          <TabPositions
+            positions={positions}
+            loadingPos={loadingPos}
+            walletAddr={walletAddr}
+            onGoToSettings={() => setActiveTab('settings')}
+          />
+        )}
         {activeTab === 'settings'  && <TabSettings />}
       </main>
 
