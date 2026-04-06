@@ -171,6 +171,37 @@ from portfolio_state import PortfolioState
 from event_log import EventLog
 import family_risk  # [FAMILY] family-level risk gate
 
+# [v4.32-ML] LightGBM edge weighting — optional, graceful fallback
+try:
+    import joblib as _joblib
+    _ML_MODEL = _joblib.load("/home/ubuntu/polymarket-temp-bot/modello_final_lightgbm.joblib")
+    print(f"[ML] Modello caricato OK — {_ML_MODEL.n_features_in_} feature")
+except Exception as _ml_err:
+    _ML_MODEL = None
+    print(f"[ML] Modello non disponibile (fallback edge raw): {_ml_err}")
+
+def ml_weight_edge(edge: float, mid: float, city: str, T: float) -> float:
+    """[v4.32-ML] Pesa l'edge con P(win) del modello. Fallback = edge originale."""
+    if _ML_MODEL is None or edge <= 0:
+        return edge
+    try:
+        city_enc = 1.0 if city == 'seoul' else 0.0
+        feats = [[
+            edge,
+            abs(edge),
+            mid,
+            city_enc,
+            T,
+            edge / max(mid, 0.01),
+            city_enc * edge,
+            1.0 / max(mid, 0.01),
+        ]]
+        ml_proba = float(_ML_MODEL.predict_proba(feats)[0][1])
+        weighted = edge * (0.5 + 0.5 * ml_proba)
+        return weighted
+    except Exception as _e:
+        return edge  # [v4.32-ML] fallback silenzioso
+
 # ── Global state instances (single source of truth) ──────────
 STATE  = PortfolioState()
 EVENTS = EventLog()
@@ -1710,7 +1741,7 @@ def kelly_and_mc(edge: float, mid: float, depth_usd: float,
     depth_mult = min(2.0, max(0.3, np.sqrt(depth_usd/MIN_DEPTH_USD)))
     t_mult     = time_edge_mult(T)
     size       = frac * kelly_full * capital * depth_mult * t_mult
-    size       = min(max(size,1.0), capital*0.05)  # [BECKER] hard cap 2% per trade
+    size       = min(max(size, 5.0 * mid), capital * 0.08)  # [v4.32-fix] floor=CLOB min (5xmid), cap 8%
 
     # [v4.11-B2] Global exposure cap: usa STATE.total_exposure (calcolato da
     # positions reali, mai azzerato dal daily reset) invece di TOTAL_EXPOSURE
@@ -3380,6 +3411,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                           f"dir_edge={directional_edge:+.4f} gls={_gls_edge:+.4f} "
                           f"final={edge_fc:.4f} "
                           f"σ={CITY_SIGMA_BASE.get(city,2.5)+0.20*T:.2f}")
+                    edge_fc = ml_weight_edge(edge_fc, mid, city, T)  # [v4.32-ML] pesa con modello
                     if edge_fc < MIN_FORECAST_EDGE: return
 
                     # [FAC] Aggiorna fattori
@@ -3492,6 +3524,29 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                             log.info(f"THROTTLE: {_orders_this_cycle}/{MAX_ORDERS_PER_CYCLE} ordini raggiunto, skip MM")
                             return
                         _orders_this_cycle += 1  # [v4.24-race] prenota slot prima await
+                        # [V5-DATA] Microstructure snapshot PRE-ORDER
+                        try:
+                            import json as _json
+                            _v5_spread_bp   = round((spread / mid * 10000) if mid > 0 else 9999, 1)
+                            _v5_bid_depth   = round(sum(b[1] for b in bids[:5]), 4)
+                            _v5_ask_depth   = round(sum(a[1] for a in asks[:5]), 4)
+                            with open("/home/ubuntu/polymarket-temp-bot/v5_book_data.jsonl", "a") as _v5f:
+                                _v5f.write(_json.dumps({
+                                    "ts":            time.time(),
+                                    "token_id":      tid,
+                                    "city":          city,
+                                    "mid":           round(mid, 4),
+                                    "bid_adj":       round(bid_adj, 4),
+                                    "spread_bp":     _v5_spread_bp,
+                                    "bid_depth_usd": _v5_bid_depth,
+                                    "ask_depth_usd": _v5_ask_depth,
+                                    "edge_fc":       round(edge_fc, 4),
+                                    "true_p":        round(true_p, 4),
+                                    "T_days":        round(T, 4),
+                                }) + "\n")
+                            log.debug(f"[V5-DATA] Book logged token={tid[:12]} spread={_v5_spread_bp:.0f}bp")
+                        except Exception as _v5e:
+                            log.debug(f"[V5-DATA] Book log failed: {_v5e}")
                         print("[DBG7] calling place_order MM", flush=True)
                         try:
                             await asyncio.wait_for(place_order(client, tid, "BUY", bid_adj, size, city=city, strategy="MM"), timeout=15.0)
