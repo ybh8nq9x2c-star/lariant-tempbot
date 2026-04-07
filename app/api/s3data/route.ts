@@ -135,16 +135,22 @@ const EMPTY_BOOK: BookSnapshot = { spreadBp: 0, bidDepthUsd: 0, fairProb: 0 };
 /**
  * Parse v5_book_data.jsonl — each line is a JSON snapshot.
  *
+ * ROOT CAUSE FIX: v5_book_data.jsonl records have token_id but NO city field.
+ * We resolve city via the tokenCityMap built from trades.jsonl (which has both).
+ * Priority: explicit obj.city field first → tokenCityMap fallback.
+ *
  * Returns:
  *   snapshots   — latest BookSnapshot per city (oldest→newest, last wins)
- *   entryCount  — total number of valid (parseable) lines in the file.
- *                 Used by the UI widget as the V5 dataset progress counter.
+ *   entryCount  — total valid (parseable) lines; drives the V5 progress widget.
  *
- * Safe: any malformed line is silently skipped; missing file (raw='') → 0.
+ * Safe: malformed lines skipped; missing file (raw='') or empty map → 0 / {}.
  */
-function parseBookData(raw: string): {
-  snapshots:   Record<string, BookSnapshot>;
-  entryCount:  number;
+function parseBookData(
+  raw:          string,
+  tokenCityMap: Record<string, string> = {}, // derived from trades.jsonl
+): {
+  snapshots:  Record<string, BookSnapshot>;
+  entryCount: number;
 } {
   const snapshots: Record<string, BookSnapshot> = {};
   let entryCount = 0;
@@ -153,10 +159,19 @@ function parseBookData(raw: string): {
   for (const line of lines) {
     try {
       const obj = JSON.parse(line) as Record<string, unknown>;
-      entryCount++; // count every successfully parsed line
+      entryCount++; // count every valid parsed line (before city check)
 
-      const city = String(obj.city ?? '').toUpperCase().trim();
-      if (!city) continue;
+      // City resolution — explicit field wins; token_id lookup is the fallback.
+      // v5_book_data.jsonl currently has no city field, only token_id.
+      let city = String(obj.city ?? '').toUpperCase().trim();
+      if (!city) {
+        const tokenId = String(obj.token_id ?? obj.asset_id ?? '').trim();
+        city = tokenCityMap[tokenId] ?? '';
+      }
+      if (!city) {
+        console.warn(`[s3data] book record unresolvable (no city, unknown token): ${line.slice(0, 120)}`);
+        continue;
+      }
 
       const toNum = (v: unknown, def = 0): number => {
         const n = parseFloat(String(v ?? def));
@@ -168,10 +183,34 @@ function parseBookData(raw: string): {
         bidDepthUsd: toNum(obj.bid_depth_usd),
         fairProb:    toNum(obj.fair_prob),
       };
-    } catch { /* skip malformed line */ }
+    } catch { /* skip malformed line — never abort the loop */ }
   }
 
+  console.log(
+    `[s3data] parseBookData: ${entryCount} lines parsed | ` +
+    `cities resolved: ${Object.keys(snapshots).join(', ') || 'NONE'}`
+  );
   return { snapshots, entryCount };
+}
+
+/**
+ * Walk trades.jsonl and build a token_id → city lookup table.
+ *
+ * v5_book_data.jsonl records carry token_id but NO city field.
+ * trades.jsonl records carry both — so we derive the mapping from there.
+ *
+ * Strategy: oldest→newest so the most recent city assignment per token wins.
+ * Field candidates for the token key: token_id | asset_id | condition_id.
+ */
+function buildTokenCityMap(trades: Record<string, unknown>[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const t of trades) {
+    const tokenId = String(t.token_id ?? t.asset_id ?? t.condition_id ?? '').trim();
+    const city    = String(t.city ?? '').toUpperCase().trim();
+    if (tokenId && city) map[tokenId] = city;
+  }
+  console.log(`[s3data] tokenCityMap: ${Object.keys(map).length} token(s) mapped`);
+  return map;
 }
 
 /** Walk trades oldest→newest; last sigma_used per city wins. */
@@ -308,8 +347,9 @@ export async function GET(): Promise<NextResponse> {
     const sigma        = latestSigma(trades);
     const phase2       = computePhase2Metrics(trades);
 
-    // V5 book data — keyed by city ('LON', 'SEO')
-    const { snapshots: book, entryCount: v5BookEntryCount } = parseBookData(bookRaw);
+    // V5 book data — build token→city map from trades first, then parse book
+    const tokenCityMap = buildTokenCityMap(trades);
+    const { snapshots: book, entryCount: v5BookEntryCount } = parseBookData(bookRaw, tokenCityMap);
     const bookLon = book['LON'] ?? EMPTY_BOOK;
     const bookSeo = book['SEO'] ?? EMPTY_BOOK;
 
