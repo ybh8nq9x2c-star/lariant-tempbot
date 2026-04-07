@@ -80,3 +80,13 @@ redeemer_state.json
 
 # ── Compiled test / patch artefacts ───────────────────────────────────────────
 fix_report.txt
+
+# ── ML model binaries (large, tracked separately) ─────────────────────────────
+*.joblib
+*.pkl
+*.h5
+*.pb
+
+# ── Jupyter / notebook artifacts ──────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
