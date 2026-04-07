@@ -221,11 +221,15 @@ def _edge_decay_guard() -> bool:
     return True
 
 def _consecutive_loss_guard() -> bool:
-    """[CB-v1] Blocca per 1h dopo 4 stoploss consecutivi."""
+    """[CB-v1-fix] Blocca 1h dopo 4 SL; reset automatico a scadenza."""
+    global _consecutive_losses
     if time.time() < _cb_loss_blocked_until:
         remaining = int(_cb_loss_blocked_until - time.time()) // 60
         log.debug(f"[CB-LOSS] Blocco attivo — {remaining}min rimasti")
         return False
+    if _consecutive_losses >= 4:  # [CB-v1-fix] blocco appena scaduto → reset
+        log.info(f"[CB-LOSS] Blocco scaduto — reset counter ({_consecutive_losses} → 0)")
+        _consecutive_losses = 0
     return True
 
 async def _latency_guard_loop(client):
@@ -2216,7 +2220,8 @@ async def update_pnl_from_fills(client):  # [v4.17-fix-pnl] converted to async
                 bucket_fill   = order_meta.get("bucket_key", "fill_confirmed")
                 T_fill        = order_meta.get("T", 1.0)
                 edge_fill     = getattr(MONITOR, '_edge_cache', {}).get(token_id_fill, order_meta.get("edge", 0.0))  # [EDGE]
-                _edge_decay_window.append(edge_fill)  # [CB-v1] feed EdgeDecayGuard
+                if side == "BUY":  # [CB-v1-fix] solo BUY, no SELL pollution
+                    _edge_decay_window.append(edge_fill)
                 # [QUANT] read full evaluation snapshot captured at order time
                 _qm = _quant_meta_cache.get(token_id_fill, {})
                 MONITOR.record_trade(token_id_fill, strategy_fill, city_fill,
@@ -2693,8 +2698,9 @@ async def check_position_stoploss(client):
             if pnl_pct < -(STOPLOSS_POSITION_PCT * 100):
                 # [CB-v1] ConsecutiveLossGuard counter
                 global _consecutive_losses, _cb_loss_blocked_until
-                _consecutive_losses += 1
-                if _consecutive_losses >= 4:
+                if time.time() >= _cb_loss_blocked_until:  # [CB-v1-fix] no double-count
+                    _consecutive_losses += 1
+                if _consecutive_losses >= 4 and time.time() >= _cb_loss_blocked_until:
                     _cb_loss_blocked_until = time.time() + 3600
                     log.error(
                         f"[CB-LOSS] {_consecutive_losses} SL consecutivi — "
