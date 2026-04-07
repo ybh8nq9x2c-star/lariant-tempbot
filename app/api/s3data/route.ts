@@ -202,11 +202,20 @@ function parseBookData(
  * Strategy: oldest→newest so the most recent city assignment per token wins.
  * Field candidates for the token key: token_id | asset_id | condition_id.
  */
+// Normalise any city string the bot might write → canonical 3-letter key.
+// Covers both abbreviated ('LON', 'SEO') and full-name ('LONDON', 'SEOUL')
+// variants so book['LON'] and book['SEO'] always resolve correctly.
+const CITY_NORMALIZE: Record<string, string> = {
+  LON:    'LON', LONDON:  'LON',
+  SEO:    'SEO', SEOUL:   'SEO',
+};
+
 function buildTokenCityMap(trades: Record<string, unknown>[]): Record<string, string> {
   const map: Record<string, string> = {};
   for (const t of trades) {
     const tokenId = String(t.token_id ?? t.asset_id ?? t.condition_id ?? '').trim();
-    const city    = String(t.city ?? '').toUpperCase().trim();
+    const rawCity = String(t.city ?? '').toUpperCase().trim();
+    const city    = CITY_NORMALIZE[rawCity] ?? rawCity; // normalise or keep raw
     if (tokenId && city) map[tokenId] = city;
   }
   console.log(`[s3data] tokenCityMap: ${Object.keys(map).length} token(s) mapped`);
