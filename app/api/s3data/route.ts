@@ -349,9 +349,12 @@ export async function GET(): Promise<NextResponse> {
 
     // V5 book data — build token→city map from trades first, then parse book
     const tokenCityMap = buildTokenCityMap(trades);
+    console.log('[DEBUG MAPPING] Mappa generata:', Object.entries(tokenCityMap));
+    console.log('[DEBUG BOOK] Prime 2 righe raw:', bookRaw.split('\n').filter(Boolean).slice(0, 2));
     const { snapshots: book, entryCount: v5BookEntryCount } = parseBookData(bookRaw, tokenCityMap);
     const bookLon = book['LON'] ?? EMPTY_BOOK;
     const bookSeo = book['SEO'] ?? EMPTY_BOOK;
+    console.log('[DEBUG OUTPUT] bookLon:', bookLon, '| bookSeo:', bookSeo);
 
     console.log(
       `[s3data] OK — ${positions.length} positions | ` +
