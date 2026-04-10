@@ -1,0 +1,50 @@
+# === SENSITIVE — NEVER PUSH ===
+.env
+.env.*
+*.pem
+*.key
+*.secret
+credentials.json
+service-account*.json
+
+# === DATA FILES — NEVER PUSH ===
+*.jsonl
+*.csv
+*.parquet
+*.sqlite
+*.db
+
+# === LOGS ===
+*.log
+nohup.out
+
+# === PYTHON ===
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# === BACKUPS ===
+*.bak
+*.bak_*
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === ML MODELS ===
+*.pkl
+*.joblib
+*.h5
+*.onnx
+
+# === CACHE ===
+*.cache
+.cache/
+
+# === ARCHIVE LEDGERS ===
+archive_ledgers/
