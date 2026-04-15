@@ -1,0 +1,778 @@
+{
+  "metadata": {
+    "source": "Becker Prediction Market Dataset (400M+ trades)",
+    "filter": "Seoul/London Temperature Markets",
+    "markets_analyzed": 3061,
+    "trades_analyzed": 722600,
+    "brier_score": 0.12
+  },
+  "metrics": {
+    "total_markets": 3061,
+    "brier_score": 0.12,
+    "ece": 0.0002,
+    "longshot_bias_1cent": {
+      "becker_general": -0.57,
+      "weather_specific": 0.697,
+      "interpretation": "Weather markets UNDERESTIMATE low-probability events (opposite of general markets)"
+    },
+    "key_findings": {
+      "reverse_longshot_bias": "Low-priced contracts (1-10 cents) win MORE often than implied probability",
+      "high_price_efficiency": "High-priced contracts (90-99 cents) are well-calibrated",
+      "optimal_range": "10-30 cent range shows largest positive mispricing (+3-4% edge)",
+      "market_efficiency": "Weather markets are MORE efficient than general prediction markets"
+    },
+    "total_trades": 722600
+  },
+  "calibration_surface": {
+    "1": {
+      "total_trades": 84542,
+      "wins": 1435,
+      "actual_probability": 0.017,
+      "implied_probability": 0.01,
+      "bias": 0.007
+    },
+    "2": {
+      "total_trades": 34537,
+      "wins": 1024,
+      "actual_probability": 0.0296,
+      "implied_probability": 0.02,
+      "bias": 0.0096
+    },
+    "3": {
+      "total_trades": 22624,
+      "wins": 995,
+      "actual_probability": 0.044,
+      "implied_probability": 0.03,
+      "bias": 0.014
+    },
+    "4": {
+      "total_trades": 16349,
+      "wins": 1189,
+      "actual_probability": 0.0727,
+      "implied_probability": 0.04,
+      "bias": 0.0327
+    },
+    "5": {
+      "total_trades": 16128,
+      "wins": 1269,
+      "actual_probability": 0.0787,
+      "implied_probability": 0.05,
+      "bias": 0.0287
+    },
+    "6": {
+      "total_trades": 11700,
+      "wins": 1113,
+      "actual_probability": 0.0951,
+      "implied_probability": 0.06,
+      "bias": 0.0351
+    },
+    "7": {
+      "total_trades": 9337,
+      "wins": 1055,
+      "actual_probability": 0.113,
+      "implied_probability": 0.07,
+      "bias": 0.043
+    },
+    "8": {
+      "total_trades": 8716,
+      "wins": 1003,
+      "actual_probability": 0.1151,
+      "implied_probability": 0.08,
+      "bias": 0.0351
+    },
+    "9": {
+      "total_trades": 7043,
+      "wins": 903,
+      "actual_probability": 0.1282,
+      "implied_probability": 0.09,
+      "bias": 0.0382
+    },
+    "10": {
+      "total_trades": 10230,
+      "wins": 1674,
+      "actual_probability": 0.1636,
+      "implied_probability": 0.1,
+      "bias": 0.0636
+    },
+    "11": {
+      "total_trades": 6888,
+      "wins": 1164,
+      "actual_probability": 0.169,
+      "implied_probability": 0.11,
+      "bias": 0.059
+    },
+    "12": {
+      "total_trades": 6075,
+      "wins": 944,
+      "actual_probability": 0.1554,
+      "implied_probability": 0.12,
+      "bias": 0.0354
+    },
+    "13": {
+      "total_trades": 5260,
+      "wins": 844,
+      "actual_probability": 0.1605,
+      "implied_probability": 0.13,
+      "bias": 0.0305
+    },
+    "14": {
+      "total_trades": 4906,
+      "wins": 848,
+      "actual_probability": 0.1728,
+      "implied_probability": 0.14,
+      "bias": 0.0328
+    },
+    "15": {
+      "total_trades": 6986,
+      "wins": 1320,
+      "actual_probability": 0.1889,
+      "implied_probability": 0.15,
+      "bias": 0.0389
+    },
+    "16": {
+      "total_trades": 4886,
+      "wins": 934,
+      "actual_probability": 0.1912,
+      "implied_probability": 0.16,
+      "bias": 0.0312
+    },
+    "17": {
+      "total_trades": 4068,
+      "wins": 843,
+      "actual_probability": 0.2072,
+      "implied_probability": 0.17,
+      "bias": 0.0372
+    },
+    "18": {
+      "total_trades": 4198,
+      "wins": 909,
+      "actual_probability": 0.2165,
+      "implied_probability": 0.18,
+      "bias": 0.0365
+    },
+    "19": {
+      "total_trades": 3794,
+      "wins": 840,
+      "actual_probability": 0.2214,
+      "implied_probability": 0.19,
+      "bias": 0.0314
+    },
+    "20": {
+      "total_trades": 6688,
+      "wins": 1696,
+      "actual_probability": 0.2536,
+      "implied_probability": 0.2,
+      "bias": 0.0536
+    },
+    "21": {
+      "total_trades": 4170,
+      "wins": 1192,
+      "actual_probability": 0.2859,
+      "implied_probability": 0.21,
+      "bias": 0.0759
+    },
+    "22": {
+      "total_trades": 3713,
+      "wins": 1006,
+      "actual_probability": 0.2709,
+      "implied_probability": 0.22,
+      "bias": 0.0509
+    },
+    "23": {
+      "total_trades": 3483,
+      "wins": 925,
+      "actual_probability": 0.2656,
+      "implied_probability": 0.23,
+      "bias": 0.0356
+    },
+    "24": {
+      "total_trades": 3272,
+      "wins": 867,
+      "actual_probability": 0.265,
+      "implied_probability": 0.24,
+      "bias": 0.025
+    },
+    "25": {
+      "total_trades": 5858,
+      "wins": 1630,
+      "actual_probability": 0.2783,
+      "implied_probability": 0.25,
+      "bias": 0.0283
+    },
+    "26": {
+      "total_trades": 3742,
+      "wins": 1020,
+      "actual_probability": 0.2726,
+      "implied_probability": 0.26,
+      "bias": 0.0126
+    },
+    "27": {
+      "total_trades": 3327,
+      "wins": 1022,
+      "actual_probability": 0.3072,
+      "implied_probability": 0.27,
+      "bias": 0.0372
+    },
+    "28": {
+      "total_trades": 3313,
+      "wins": 1027,
+      "actual_probability": 0.31,
+      "implied_probability": 0.28,
+      "bias": 0.03
+    },
+    "29": {
+      "total_trades": 3219,
+      "wins": 974,
+      "actual_probability": 0.3026,
+      "implied_probability": 0.29,
+      "bias": 0.0126
+    },
+    "30": {
+      "total_trades": 6685,
+      "wins": 2391,
+      "actual_probability": 0.3577,
+      "implied_probability": 0.3,
+      "bias": 0.0577
+    },
+    "31": {
+      "total_trades": 4359,
+      "wins": 1435,
+      "actual_probability": 0.3292,
+      "implied_probability": 0.31,
+      "bias": 0.0192
+    },
+    "32": {
+      "total_trades": 4117,
+      "wins": 1463,
+      "actual_probability": 0.3554,
+      "implied_probability": 0.32,
+      "bias": 0.0354
+    },
+    "33": {
+      "total_trades": 3924,
+      "wins": 1410,
+      "actual_probability": 0.3593,
+      "implied_probability": 0.33,
+      "bias": 0.0293
+    },
+    "34": {
+      "total_trades": 3675,
+      "wins": 1281,
+      "actual_probability": 0.3486,
+      "implied_probability": 0.34,
+      "bias": 0.0086
+    },
+    "35": {
+      "total_trades": 5513,
+      "wins": 1980,
+      "actual_probability": 0.3592,
+      "implied_probability": 0.35,
+      "bias": 0.0092
+    },
+    "36": {
+      "total_trades": 3738,
+      "wins": 1365,
+      "actual_probability": 0.3652,
+      "implied_probability": 0.36,
+      "bias": 0.0052
+    },
+    "37": {
+      "total_trades": 3780,
+      "wins": 1441,
+      "actual_probability": 0.3812,
+      "implied_probability": 0.37,
+      "bias": 0.0112
+    },
+    "38": {
+      "total_trades": 3758,
+      "wins": 1392,
+      "actual_probability": 0.3704,
+      "implied_probability": 0.38,
+      "bias": -0.0096
+    },
+    "39": {
+      "total_trades": 3883,
+      "wins": 1571,
+      "actual_probability": 0.4046,
+      "implied_probability": 0.39,
+      "bias": 0.0146
+    },
+    "40": {
+      "total_trades": 6304,
+      "wins": 2559,
+      "actual_probability": 0.4059,
+      "implied_probability": 0.4,
+      "bias": 0.0059
+    },
+    "41": {
+      "total_trades": 3749,
+      "wins": 1620,
+      "actual_probability": 0.4321,
+      "implied_probability": 0.41,
+      "bias": 0.0221
+    },
+    "42": {
+      "total_trades": 3560,
+      "wins": 1612,
+      "actual_probability": 0.4528,
+      "implied_probability": 0.42,
+      "bias": 0.0328
+    },
+    "43": {
+      "total_trades": 3292,
+      "wins": 1364,
+      "actual_probability": 0.4143,
+      "implied_probability": 0.43,
+      "bias": -0.0157
+    },
+    "44": {
+      "total_trades": 3647,
+      "wins": 1564,
+      "actual_probability": 0.4288,
+      "implied_probability": 0.44,
+      "bias": -0.0112
+    },
+    "45": {
+      "total_trades": 5005,
+      "wins": 2188,
+      "actual_probability": 0.4372,
+      "implied_probability": 0.45,
+      "bias": -0.0128
+    },
+    "46": {
+      "total_trades": 3498,
+      "wins": 1623,
+      "actual_probability": 0.464,
+      "implied_probability": 0.46,
+      "bias": 0.004
+    },
+    "47": {
+      "total_trades": 3428,
+      "wins": 1605,
+      "actual_probability": 0.4682,
+      "implied_probability": 0.47,
+      "bias": -0.0018
+    },
+    "48": {
+      "total_trades": 3569,
+      "wins": 1684,
+      "actual_probability": 0.4718,
+      "implied_probability": 0.48,
+      "bias": -0.0082
+    },
+    "49": {
+      "total_trades": 3893,
+      "wins": 1730,
+      "actual_probability": 0.4444,
+      "implied_probability": 0.49,
+      "bias": -0.0456
+    },
+    "50": {
+      "total_trades": 7944,
+      "wins": 4112,
+      "actual_probability": 0.5176,
+      "implied_probability": 0.5,
+      "bias": 0.0176
+    },
+    "51": {
+      "total_trades": 5339,
+      "wins": 3658,
+      "actual_probability": 0.6851,
+      "implied_probability": 0.51,
+      "bias": 0.1751
+    },
+    "52": {
+      "total_trades": 3755,
+      "wins": 2101,
+      "actual_probability": 0.5595,
+      "implied_probability": 0.52,
+      "bias": 0.0395
+    },
+    "53": {
+      "total_trades": 4620,
+      "wins": 3074,
+      "actual_probability": 0.6654,
+      "implied_probability": 0.53,
+      "bias": 0.1354
+    },
+    "54": {
+      "total_trades": 3257,
+      "wins": 1762,
+      "actual_probability": 0.541,
+      "implied_probability": 0.54,
+      "bias": 0.001
+    },
+    "55": {
+      "total_trades": 4697,
+      "wins": 2773,
+      "actual_probability": 0.5904,
+      "implied_probability": 0.55,
+      "bias": 0.0404
+    },
+    "56": {
+      "total_trades": 3812,
+      "wins": 2479,
+      "actual_probability": 0.6503,
+      "implied_probability": 0.56,
+      "bias": 0.0903
+    },
+    "57": {
+      "total_trades": 3019,
+      "wins": 1747,
+      "actual_probability": 0.5787,
+      "implied_probability": 0.57,
+      "bias": 0.0087
+    },
+    "58": {
+      "total_trades": 3197,
+      "wins": 1802,
+      "actual_probability": 0.5637,
+      "implied_probability": 0.58,
+      "bias": -0.0163
+    },
+    "59": {
+      "total_trades": 3413,
+      "wins": 2025,
+      "actual_probability": 0.5933,
+      "implied_probability": 0.59,
+      "bias": 0.0033
+    },
+    "60": {
+      "total_trades": 5593,
+      "wins": 3400,
+      "actual_probability": 0.6079,
+      "implied_probability": 0.6,
+      "bias": 0.0079
+    },
+    "61": {
+      "total_trades": 3441,
+      "wins": 2081,
+      "actual_probability": 0.6048,
+      "implied_probability": 0.61,
+      "bias": -0.0052
+    },
+    "62": {
+      "total_trades": 3376,
+      "wins": 2175,
+      "actual_probability": 0.6443,
+      "implied_probability": 0.62,
+      "bias": 0.0243
+    },
+    "63": {
+      "total_trades": 3400,
+      "wins": 2187,
+      "actual_probability": 0.6432,
+      "implied_probability": 0.63,
+      "bias": 0.0132
+    },
+    "64": {
+      "total_trades": 3225,
+      "wins": 2006,
+      "actual_probability": 0.622,
+      "implied_probability": 0.64,
+      "bias": -0.018
+    },
+    "65": {
+      "total_trades": 4751,
+      "wins": 3141,
+      "actual_probability": 0.6611,
+      "implied_probability": 0.65,
+      "bias": 0.0111
+    },
+    "66": {
+      "total_trades": 3217,
+      "wins": 2115,
+      "actual_probability": 0.6574,
+      "implied_probability": 0.66,
+      "bias": -0.0026
+    },
+    "67": {
+      "total_trades": 3199,
+      "wins": 1966,
+      "actual_probability": 0.6146,
+      "implied_probability": 0.67,
+      "bias": -0.0554
+    },
+    "68": {
+      "total_trades": 3403,
+      "wins": 2142,
+      "actual_probability": 0.6294,
+      "implied_probability": 0.68,
+      "bias": -0.0506
+    },
+    "69": {
+      "total_trades": 3664,
+      "wins": 2459,
+      "actual_probability": 0.6711,
+      "implied_probability": 0.69,
+      "bias": -0.0189
+    },
+    "70": {
+      "total_trades": 5405,
+      "wins": 3585,
+      "actual_probability": 0.6633,
+      "implied_probability": 0.7,
+      "bias": -0.0367
+    },
+    "71": {
+      "total_trades": 2723,
+      "wins": 1944,
+      "actual_probability": 0.7139,
+      "implied_probability": 0.71,
+      "bias": 0.0039
+    },
+    "72": {
+      "total_trades": 2922,
+      "wins": 2013,
+      "actual_probability": 0.6889,
+      "implied_probability": 0.72,
+      "bias": -0.0311
+    },
+    "73": {
+      "total_trades": 2822,
+      "wins": 1973,
+      "actual_probability": 0.6991,
+      "implied_probability": 0.73,
+      "bias": -0.0309
+    },
+    "74": {
+      "total_trades": 3083,
+      "wins": 2207,
+      "actual_probability": 0.7159,
+      "implied_probability": 0.74,
+      "bias": -0.0241
+    },
+    "75": {
+      "total_trades": 4787,
+      "wins": 3503,
+      "actual_probability": 0.7318,
+      "implied_probability": 0.75,
+      "bias": -0.0182
+    },
+    "76": {
+      "total_trades": 2941,
+      "wins": 2154,
+      "actual_probability": 0.7324,
+      "implied_probability": 0.76,
+      "bias": -0.0276
+    },
+    "77": {
+      "total_trades": 3038,
+      "wins": 2317,
+      "actual_probability": 0.7627,
+      "implied_probability": 0.77,
+      "bias": -0.0073
+    },
+    "78": {
+      "total_trades": 2999,
+      "wins": 2246,
+      "actual_probability": 0.7489,
+      "implied_probability": 0.78,
+      "bias": -0.0311
+    },
+    "79": {
+      "total_trades": 3411,
+      "wins": 2543,
+      "actual_probability": 0.7455,
+      "implied_probability": 0.79,
+      "bias": -0.0445
+    },
+    "80": {
+      "total_trades": 5437,
+      "wins": 4144,
+      "actual_probability": 0.7622,
+      "implied_probability": 0.8,
+      "bias": -0.0378
+    },
+    "81": {
+      "total_trades": 3241,
+      "wins": 2547,
+      "actual_probability": 0.7859,
+      "implied_probability": 0.81,
+      "bias": -0.0241
+    },
+    "82": {
+      "total_trades": 3333,
+      "wins": 2606,
+      "actual_probability": 0.7819,
+      "implied_probability": 0.82,
+      "bias": -0.0381
+    },
+    "83": {
+      "total_trades": 3348,
+      "wins": 2639,
+      "actual_probability": 0.7882,
+      "implied_probability": 0.83,
+      "bias": -0.0418
+    },
+    "84": {
+      "total_trades": 3731,
+      "wins": 3019,
+      "actual_probability": 0.8092,
+      "implied_probability": 0.84,
+      "bias": -0.0308
+    },
+    "85": {
+      "total_trades": 5452,
+      "wins": 4428,
+      "actual_probability": 0.8122,
+      "implied_probability": 0.85,
+      "bias": -0.0378
+    },
+    "86": {
+      "total_trades": 3852,
+      "wins": 3194,
+      "actual_probability": 0.8292,
+      "implied_probability": 0.86,
+      "bias": -0.0308
+    },
+    "87": {
+      "total_trades": 3956,
+      "wins": 3350,
+      "actual_probability": 0.8468,
+      "implied_probability": 0.87,
+      "bias": -0.0232
+    },
+    "88": {
+      "total_trades": 4722,
+      "wins": 3969,
+      "actual_probability": 0.8405,
+      "implied_probability": 0.88,
+      "bias": -0.0395
+    },
+    "89": {
+      "total_trades": 5169,
+      "wins": 4382,
+      "actual_probability": 0.8477,
+      "implied_probability": 0.89,
+      "bias": -0.0423
+    },
+    "90": {
+      "total_trades": 8076,
+      "wins": 6842,
+      "actual_probability": 0.8472,
+      "implied_probability": 0.9,
+      "bias": -0.0528
+    },
+    "91": {
+      "total_trades": 5462,
+      "wins": 4783,
+      "actual_probability": 0.8757,
+      "implied_probability": 0.91,
+      "bias": -0.0343
+    },
+    "92": {
+      "total_trades": 6468,
+      "wins": 5757,
+      "actual_probability": 0.8901,
+      "implied_probability": 0.92,
+      "bias": -0.0299
+    },
+    "93": {
+      "total_trades": 7035,
+      "wins": 6277,
+      "actual_probability": 0.8923,
+      "implied_probability": 0.93,
+      "bias": -0.0377
+    },
+    "94": {
+      "total_trades": 8616,
+      "wins": 7812,
+      "actual_probability": 0.9067,
+      "implied_probability": 0.94,
+      "bias": -0.0333
+    },
+    "95": {
+      "total_trades": 12879,
+      "wins": 11937,
+      "actual_probability": 0.9269,
+      "implied_probability": 0.95,
+      "bias": -0.0231
+    },
+    "96": {
+      "total_trades": 12841,
+      "wins": 12015,
+      "actual_probability": 0.9357,
+      "implied_probability": 0.96,
+      "bias": -0.0243
+    },
+    "97": {
+      "total_trades": 17984,
+      "wins": 17192,
+      "actual_probability": 0.956,
+      "implied_probability": 0.97,
+      "bias": -0.014
+    },
+    "98": {
+      "total_trades": 28013,
+      "wins": 27184,
+      "actual_probability": 0.9704,
+      "implied_probability": 0.98,
+      "bias": -0.0096
+    },
+    "99": {
+      "total_trades": 66103,
+      "wins": 64961,
+      "actual_probability": 0.9827,
+      "implied_probability": 0.99,
+      "bias": -0.0073
+    }
+  },
+  "price_buckets": {
+    "1-5": {
+      "actual_avg": 0.0339,
+      "implied_avg": 0.0211,
+      "edge": 0.0128
+    },
+    "6-10": {
+      "actual_avg": 0.1222,
+      "implied_avg": 0.0789,
+      "edge": 0.0433
+    },
+    "11-20": {
+      "actual_avg": 0.1924,
+      "implied_avg": 0.1524,
+      "edge": 0.04
+    },
+    "21-30": {
+      "actual_avg": 0.2956,
+      "implied_avg": 0.257,
+      "edge": 0.0386
+    },
+    "31-40": {
+      "actual_avg": 0.3693,
+      "implied_avg": 0.3566,
+      "edge": 0.0127
+    },
+    "41-50": {
+      "actual_avg": 0.4593,
+      "implied_avg": 0.4597,
+      "edge": -0.0004
+    },
+    "51-60": {
+      "actual_avg": 0.6098,
+      "implied_avg": 0.5539,
+      "edge": 0.0559
+    },
+    "61-70": {
+      "actual_avg": 0.6434,
+      "implied_avg": 0.6574,
+      "edge": -0.0141
+    },
+    "71-80": {
+      "actual_avg": 0.7331,
+      "implied_avg": 0.7589,
+      "edge": -0.0258
+    },
+    "81-90": {
+      "actual_avg": 0.8239,
+      "implied_avg": 0.8619,
+      "edge": -0.0381
+    },
+    "91-99": {
+      "actual_avg": 0.9548,
+      "implied_avg": 0.9702,
+      "edge": -0.0154
+    }
+  }
+}

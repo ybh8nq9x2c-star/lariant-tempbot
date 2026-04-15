@@ -1,0 +1,95 @@
+{
+  "ts": 1776242458.7912097,
+  "capital": 38.773089,
+  "total_exposure": 16.9436805,
+  "daily_pnl": 0.0,
+  "drawdown_pct": 0.169751,
+  "peak_capital": 46.70057,
+  "open_positions": 2,
+  "exposure_by_city": {
+    "seoul": 6.442126,
+    "london": 3.84742
+  },
+  "positions": {
+    "86801664228397056728768911339185350838240430148443147855398285074267533940235": {
+      "size": 12.6069,
+      "avg_price": 0.511,
+      "notional": 6.4421259,
+      "city": "seoul",
+      "title": "Will the highest temperature in Seoul be 21\u00b0C or higher on April 15?",
+      "ts_updated": 1776242446.4761195,
+      "edge": 0.4585
+    },
+    "88525760836648828625473012996147844293640777850424972464747630028258823187626": {
+      "size": 10.7081,
+      "avg_price": 0.3593,
+      "notional": 3.8474203300000003,
+      "city": "london",
+      "title": "Will the highest temperature in London be 17\u00b0C on April 15?",
+      "ts_updated": 1776242446.476129,
+      "edge": 0.0578
+    }
+  },
+  "trades_summary": {
+    "win_rate": 0.9803,
+    "sharpe": 0.6175,
+    "sortino": 0.8435,
+    "profit_factor": 53.23,
+    "expectancy": 7.717208,
+    "avg_win": 8.022788,
+    "avg_loss": -7.510842,
+    "avg_win_loss_ratio": 1.0682,
+    "calmar": 100.025,
+    "max_dd_usd": 23.5316,
+    "total_pnl": 2353.748572,
+    "n_resolved": 305,
+    "n_wins": 299,
+    "n_losses": 6,
+    "total_gross_win": 2398.813622,
+    "total_gross_loss": -45.06505,
+    "n_total_entries": 460,
+    "n_total_exits": 332,
+    "pnl_by_strategy": {
+      "MM": 2155.472031,
+      "STOPLOSS": 198.276541
+    },
+    "pnl_by_city": {
+      "london": 1138.640114,
+      "seoul": 1215.108458
+    },
+    "daily_pnl_ledger": 0.0,
+    "last_update_ts": 1776242458.7818136,
+    "data_freshness_status": "ok",
+    "sample_warning": null,
+    "pnl_by_city_strategy": {
+      "london_MM": {
+        "total_pnl": 1141.463164,
+        "n": 156,
+        "win_rate": 0.9936
+      },
+      "seoul_STOPLOSS": {
+        "total_pnl": 201.099591,
+        "n": 24,
+        "win_rate": 0.9167
+      },
+      "seoul_MM": {
+        "total_pnl": 1014.008867,
+        "n": 121,
+        "win_rate": 0.9917
+      },
+      "london_STOPLOSS": {
+        "total_pnl": -2.82305,
+        "n": 4,
+        "win_rate": 0.5
+      }
+    }
+  },
+  "params": {
+    "MIN_FORECAST_EDGE": 0.01,
+    "MISPRICING_THRESHOLD": 0.015,
+    "MIN_MAKER_SPREAD": 0.0077,
+    "MAX_DD": 0.15
+  },
+  "_source": "s3_watcher.py",
+  "_extracted_utc": "2026-04-15T08:41:08Z"
+}

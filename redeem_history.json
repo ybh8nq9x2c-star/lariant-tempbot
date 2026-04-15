@@ -1,0 +1,314 @@
+{
+  "success": [
+    {
+      "cid": "0x09cee0138e13198038831f704b0ccbac5ce3ab04741aefa6b16217f3b46e0528",
+      "title": "London be 9\u00b0C on March 14",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0xb64b7306e2412946005eca1d353434e8cb0b866c234220025ca966c07b29f58a",
+      "title": "Seoul be 8\u00b0C on March 12",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0xcdd71acd44b484172f14bcec22f96e5b2af9ecb98fcfea5f4aaf1236033699bc",
+      "title": "Seoul be 9\u00b0C on March 12",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0x582b604bc2af8eff08419c8e0d43b6ba2c34f9e5139c5e277009af956d047f5d",
+      "title": "Seoul be 9\u00b0C on March 13",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0xcf54feb04b8d3acd234093eae6a4ae69658c86b3277d3cb8465208018698ab2c",
+      "title": "Seoul be 10\u00b0C on March 12",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0x6835f93703534ae1885dc1543b44f994a9e2cb4d19e50e9eeba4dec1b9a9a237",
+      "title": "London be 11\u00b0C on March 13",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0xdfb4d6e4a29379703895ea9d812bc6c30f7bab3fb94be1d975b22d6f9851baf8",
+      "title": "Seoul be 12\u00b0C or higher on March 13",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0xe291e9e7087fea6fc9df357a7666db5cd73d7d20aaca34874b70912f5164cc50",
+      "title": "London be 10\u00b0C on March 14",
+      "ts": 1773517325.1309133
+    },
+    {
+      "cid": "0x6295ba19405352173017d09f77f23252aff8b75646dc65090ef549d26bd466b6",
+      "title": "Seoul be 7\u00b0C on March 15",
+      "ts": 1773556514.204239
+    },
+    {
+      "cid": "0x73e5df583a5d1de8dc822543fc2aa0cb4e305f9e7038e5292736527f7c2ef77b",
+      "title": "Seoul be 8\u00b0C on March 15",
+      "ts": 1773556514.204239
+    },
+    {
+      "cid": "0xb4f82eb3d8d0ec90efff50b32193f7758c0491b6f2e633be34da807545c12ab5",
+      "title": "London be 9\u00b0C on March 15",
+      "ts": 1773590763.115111
+    },
+    {
+      "cid": "0xef35d068cc12c1a7b6880b27b94c4c7648818dc5b30209decf63a573fe410f91",
+      "title": "Seoul be 6\u00b0C on March 16",
+      "ts": 1773647143.8123581
+    },
+    {
+      "cid": "0x52a2afbfafb9d4d7d7c948be55020a769b260fb311463d88b6c5b472a7c70155",
+      "title": "Seoul be 7\u00b0C on March 16",
+      "ts": 1773647143.8123581
+    },
+    {
+      "cid": "0x66a0c57c20db8720e033a1e6918eab2947f6a59d0dfc8c51e7c6d3d11fd8a872",
+      "title": "London be 9\u00b0C on March 16",
+      "ts": 1773664988.7025557
+    },
+    {
+      "cid": "0xefd3ce92533bb27a0f2d585534196aed8628e49e138b2fcac15a543633906237",
+      "title": "London be 10\u00b0C on March 16",
+      "ts": 1773731025.8178453
+    },
+    {
+      "cid": "0x2e3cba3b1c0f59819066f5449804aeb88bb14fa6db8dfc7d4e585d8d28023c45",
+      "title": "Seoul be 10\u00b0C on March 17",
+      "ts": 1773731025.8178453
+    },
+    {
+      "cid": "0x89607c9bd0251b77453ee838709d4f428103c6e9da5f60f8edf64eb114ff9822",
+      "title": "Seoul be 11\u00b0C on March 17",
+      "ts": 1773762494.8621702
+    },
+    {
+      "cid": "0x1df26a61ba3287edd3a4172ebc0a218807013017ff8f573ace783b18cd7f84f0",
+      "title": "Seoul be 13\u00b0C or higher on March 17",
+      "ts": 1773850292.872814
+    },
+    {
+      "cid": "0xf7640ac4324bc2d1cd6e14c561e2fd9aef2483d96b61b7ddc84d1775022a268c",
+      "title": "London be 19\u00b0C on March 18",
+      "ts": 1773906942.577115
+    },
+    {
+      "cid": "0x82853bcd4d760358fc934f67e6783cc1a2500fe8358a8d7788340b78193b8676",
+      "title": "Seoul be 9\u00b0C on March 20",
+      "ts": 1774016190.130373
+    },
+    {
+      "cid": "0xed74085b44c46f9b4000f6d61388d86c60df28c27894fd51b983ea18223be444",
+      "title": "Seoul be 10\u00b0C on March 24",
+      "ts": 1774343494.5240571
+    },
+    {
+      "cid": "0xb807ebced58c8a1fe4920105cc3471136c21d28ca92643d1d16940bc636521af",
+      "title": "London be 16\u00b0C on March 22",
+      "ts": 1774343494.5240571
+    },
+    {
+      "cid": "0x3db198b22396d96e11dc7111bb2699c6d229033c563ab9927117157f62baa5e9",
+      "title": "London be 14\u00b0C on April 4",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xe3772068415b24ed16fe1625b25424a4cbcda51acb301e919fdc2c7157ac6e95",
+      "title": "Seoul be 11\u00b0C on March 27",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x422e67bc7a9212271aca0eb348c5c0fa14e5161753179b7c1d98ba48d4c36a1b",
+      "title": "Seoul be 9\u00b0C on March 27",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x85bf02432534e67d89203883fab330b10859a48d6bb1c84e5cc7abf48fa58c8c",
+      "title": "London be 8\u00b0C on March 25",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x0992cd77a85ec1db78e9dbcd9ab36ea1bd6c810fc8e16e8becb238ba4b9e8e55",
+      "title": "Seoul be 11\u00b0C on April 4",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x3f9208781eaebf8732f21047a11808d4016d72c286171e6561ec17532260aac3",
+      "title": "Seoul be 12\u00b0C on March 29",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xfbaf4f15b38cb723887806a24cf605e68b9c38bb3e1a590bbbbd439d51f2e5ed",
+      "title": "Seoul be 16\u00b0C or higher on April 1",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x808a09e181d30615b28e90590b1ea9a37c1e90fa643e99d08d899ba68981083e",
+      "title": "Seoul be 17\u00b0C or higher on March 29",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xd62b45cbf2da753177764c2d0a9245f000bbe2757ee23e44fb74701dc02ac43f",
+      "title": "London be 7\u00b0C on March 25",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xec9642b6cd9094b859de879b78b3e57a317a86b16bdde225a3995b862b13ee3e",
+      "title": "Seoul be 10\u00b0C on March 28",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x1683bcc5b975923bf813bb39c361f1da70368ecca9ba3d0e23844d71baa423b1",
+      "title": "London be 18\u00b0C on April 1",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x56df2cbd6e29baa6f52d2fdaa425f8e5421a7bdc475307ada0efec4a9d104604",
+      "title": "London be 8\u00b0C or below on April 2",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x8647424c9f55a80634f3ce63c3690a6bf068fa976b85e51c86208455c8136af3",
+      "title": "Seoul be 10\u00b0C on April 1",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x01bbd20950de6bc72ae482f652dee6a7a6fd6cbfca50d1dfc29abec6ed81c4b3",
+      "title": "London be 10\u00b0C on April 2",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xb233d4dd3228f6949e5b7299c5687d85b5566f9492dabba00f385412ebf4db2a",
+      "title": "Seoul be 15\u00b0C on April 3",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x6939fd2b87ce5b086404b150f88f54e84c642c0ca6ee48f956658ffb426ceba4",
+      "title": "London be 16\u00b0C on April 2",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xd5069e40a900e8e2008986907fb12fec1c0fa2eb2ca34cd3cb3a1d08536a4c37",
+      "title": "Seoul be 15\u00b0C on April 2",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xe38f7148e0e497041f2741e6547806b64df77fb4a35bc8bea5ac7b080ac058ff",
+      "title": "Seoul be 9\u00b0C on April 4",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xa164940909c8963896df52bde72b23bf44ab6d939991d80d4361c9796e61d7d3",
+      "title": "London be 18\u00b0C or higher on April 2",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x9411dcc04f80c3bc2e673d35fa3bf2d0f7ef4fd9160c380dc42165af10661461",
+      "title": "Seoul be 13\u00b0C on April 3",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xeb6cd12642f7ee845ce50401a769ccdd40f0e96dddf81931b5631faa9397968f",
+      "title": "Seoul be 10\u00b0C on April 7",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xc425ac7a25f4060badf11aeadd0191b313c6a411658420850da45f0442bb0dac",
+      "title": "London be 13\u00b0C on March 29",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0x9a6ef69a3fc083f708b87f56fbd8dc29d186c09c6383b02016a8cf3118d3fe72",
+      "title": "London be 11\u00b0C or below on April 1",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xe843b1654a4a549541af0e2a833df68488538c74f9c9c400e9a26b6307cf6dd0",
+      "title": "London be 9\u00b0C on April 2",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xee47a256269c21a757864e8c94b36ce4f09b37a2d8aa793a20eed11e645869b7",
+      "title": "London be 7\u00b0C on March 26",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xa0d3400eff3e3522ce4c245f38c25fab62f20af5e002d75bccc54148ec16abdf",
+      "title": "London be 10\u00b0C on March 28",
+      "ts": 1775581366.5726736
+    },
+    {
+      "cid": "0xe02abcb685dd61c94b8298eb34de0787f160b78823652972c5ba866b3478dfff",
+      "title": "Seoul be 11\u00b0C on April 7",
+      "ts": 1775587968.4088783
+    },
+    {
+      "cid": "0x975e7298d48075454c7ae3c108d5c35b0ce5f426cfc357630d63db164a32dd8c",
+      "title": "London be 18\u00b0C on April 7",
+      "ts": 1775632114.528436
+    },
+    {
+      "cid": "0x682cce92554fa6579180fc771ea36768a51b961e11e4be6d52f0272fbe08a16f",
+      "title": "London be 20\u00b0C on April 7",
+      "ts": 1775632114.528436
+    }
+  ],
+  "failed": [],
+  "redeemed_ids": [
+    "0xc425ac7a25f4060badf11aeadd0191b313c6a411658420850da45f0442bb0dac",
+    "0x85bf02432534e67d89203883fab330b10859a48d6bb1c84e5cc7abf48fa58c8c",
+    "0x89607c9bd0251b77453ee838709d4f428103c6e9da5f60f8edf64eb114ff9822",
+    "0x422e67bc7a9212271aca0eb348c5c0fa14e5161753179b7c1d98ba48d4c36a1b",
+    "0xd62b45cbf2da753177764c2d0a9245f000bbe2757ee23e44fb74701dc02ac43f",
+    "0x0992cd77a85ec1db78e9dbcd9ab36ea1bd6c810fc8e16e8becb238ba4b9e8e55",
+    "0xe02abcb685dd61c94b8298eb34de0787f160b78823652972c5ba866b3478dfff",
+    "0xe291e9e7087fea6fc9df357a7666db5cd73d7d20aaca34874b70912f5164cc50",
+    "0x56df2cbd6e29baa6f52d2fdaa425f8e5421a7bdc475307ada0efec4a9d104604",
+    "0xb233d4dd3228f6949e5b7299c5687d85b5566f9492dabba00f385412ebf4db2a",
+    "0xef35d068cc12c1a7b6880b27b94c4c7648818dc5b30209decf63a573fe410f91",
+    "0x3db198b22396d96e11dc7111bb2699c6d229033c563ab9927117157f62baa5e9",
+    "0x808a09e181d30615b28e90590b1ea9a37c1e90fa643e99d08d899ba68981083e",
+    "0x73e5df583a5d1de8dc822543fc2aa0cb4e305f9e7038e5292736527f7c2ef77b",
+    "0xdfb4d6e4a29379703895ea9d812bc6c30f7bab3fb94be1d975b22d6f9851baf8",
+    "0x6835f93703534ae1885dc1543b44f994a9e2cb4d19e50e9eeba4dec1b9a9a237",
+    "0x582b604bc2af8eff08419c8e0d43b6ba2c34f9e5139c5e277009af956d047f5d",
+    "0xa164940909c8963896df52bde72b23bf44ab6d939991d80d4361c9796e61d7d3",
+    "0x09cee0138e13198038831f704b0ccbac5ce3ab04741aefa6b16217f3b46e0528",
+    "0x01bbd20950de6bc72ae482f652dee6a7a6fd6cbfca50d1dfc29abec6ed81c4b3",
+    "0x6295ba19405352173017d09f77f23252aff8b75646dc65090ef549d26bd466b6",
+    "0xefd3ce92533bb27a0f2d585534196aed8628e49e138b2fcac15a543633906237",
+    "0x9411dcc04f80c3bc2e673d35fa3bf2d0f7ef4fd9160c380dc42165af10661461",
+    "0x6939fd2b87ce5b086404b150f88f54e84c642c0ca6ee48f956658ffb426ceba4",
+    "0xe38f7148e0e497041f2741e6547806b64df77fb4a35bc8bea5ac7b080ac058ff",
+    "0x9a6ef69a3fc083f708b87f56fbd8dc29d186c09c6383b02016a8cf3118d3fe72",
+    "0xb4f82eb3d8d0ec90efff50b32193f7758c0491b6f2e633be34da807545c12ab5",
+    "0xee47a256269c21a757864e8c94b36ce4f09b37a2d8aa793a20eed11e645869b7",
+    "0x975e7298d48075454c7ae3c108d5c35b0ce5f426cfc357630d63db164a32dd8c",
+    "0xf7640ac4324bc2d1cd6e14c561e2fd9aef2483d96b61b7ddc84d1775022a268c",
+    "0x1683bcc5b975923bf813bb39c361f1da70368ecca9ba3d0e23844d71baa423b1",
+    "0xe843b1654a4a549541af0e2a833df68488538c74f9c9c400e9a26b6307cf6dd0",
+    "0xfbaf4f15b38cb723887806a24cf605e68b9c38bb3e1a590bbbbd439d51f2e5ed",
+    "0x682cce92554fa6579180fc771ea36768a51b961e11e4be6d52f0272fbe08a16f",
+    "0x1c17a5b3153ff3bac1462d6198703d4bead2f756f8643179600351b8850817b1",
+    "0x52a2afbfafb9d4d7d7c948be55020a769b260fb311463d88b6c5b472a7c70155",
+    "0xed74085b44c46f9b4000f6d61388d86c60df28c27894fd51b983ea18223be444",
+    "0x3f9208781eaebf8732f21047a11808d4016d72c286171e6561ec17532260aac3",
+    "0xec9642b6cd9094b859de879b78b3e57a317a86b16bdde225a3995b862b13ee3e",
+    "0xeb6cd12642f7ee845ce50401a769ccdd40f0e96dddf81931b5631faa9397968f",
+    "0x8647424c9f55a80634f3ce63c3690a6bf068fa976b85e51c86208455c8136af3",
+    "0xa0d3400eff3e3522ce4c245f38c25fab62f20af5e002d75bccc54148ec16abdf",
+    "0xb64b7306e2412946005eca1d353434e8cb0b866c234220025ca966c07b29f58a",
+    "0xcdd71acd44b484172f14bcec22f96e5b2af9ecb98fcfea5f4aaf1236033699bc",
+    "0xe3772068415b24ed16fe1625b25424a4cbcda51acb301e919fdc2c7157ac6e95",
+    "0x82853bcd4d760358fc934f67e6783cc1a2500fe8358a8d7788340b78193b8676",
+    "0xcf54feb04b8d3acd234093eae6a4ae69658c86b3277d3cb8465208018698ab2c",
+    "0xd5069e40a900e8e2008986907fb12fec1c0fa2eb2ca34cd3cb3a1d08536a4c37",
+    "0x2e3cba3b1c0f59819066f5449804aeb88bb14fa6db8dfc7d4e585d8d28023c45",
+    "0x1df26a61ba3287edd3a4172ebc0a218807013017ff8f573ace783b18cd7f84f0",
+    "0x66a0c57c20db8720e033a1e6918eab2947f6a59d0dfc8c51e7c6d3d11fd8a872",
+    "0xb807ebced58c8a1fe4920105cc3471136c21d28ca92643d1d16940bc636521af"
+  ]
+}

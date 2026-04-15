@@ -1,0 +1,22 @@
+=== FIX REPORT TempBot v4.24 STABLE ===
+Data: 2026-03-12 14:33 UTC
+
+FIXES APPLICATI:
+3A | L2543-2999 | try senza except: +4sp indent corpo loop, aggiunti except CancelledError + except Exception CRASH CICLO
+3D | L2550      | kill-switch asyncio.sleep(min(...,300)) sostituito con sleep(60)+continue
+3C | L1492      | refresh_api_creds: await _async_clob(create_or_derive) → sync client.create_or_derive_api_creds()
+
+INVARIANTI VERIFICATI (18/18):
+SYNTAX_OK / BECKER_BUY_MAX=0.60 / BECKER_BUY_MIN=0.06 / BECKER_SELL_MIN=0.75 / BECKER_SELL_MAX=0.95
+STOPLOSS_PCT=0.95 / DAILY_SL=-0.15 / HARD_CAP_2pct / KILL_SLEEP_60s / NO_KILL_SLEEP_300s
+_async_clob_defined / REDEEM_SKIP_FIX / EXCEPT_CANCELLED / EXCEPT_CRASH_CICLO
+DAILY_SL_NOT_IN_RELOAD / NO_SYNC_POST_ORDER / NO_SYNC_GET_ORDERS / NO_SYNC_CANCEL
+RESULT: ALL OK
+
+STATO FINALE:
+- DRY-CHECK: PASS
+- Bot live: tmux bot_v424
+- Cicli completati: 4+ (no crash)
+- Capitale: USD 38.83
+- Errori residui: nessuno
+- File: tempbot_v424.py — 3660 righe — SYNTAX OK

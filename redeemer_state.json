@@ -1,0 +1,10 @@
+{
+  "redeemed_cids": [],
+  "last_global_attempt": 1774427776.9443712,
+  "cid_last_attempt": {},
+  "stats": {
+    "total_redeemed": 0,
+    "total_failed": 0,
+    "total_skipped": 3607
+  }
+}

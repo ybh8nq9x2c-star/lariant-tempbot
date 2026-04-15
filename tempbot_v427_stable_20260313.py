@@ -413,6 +413,7 @@ BECKER_BUY_ZONE_MIN  = 0.06   # BUY solo se mid > 6¢ (sotto = troppa varianza)
 BECKER_BUY_ZONE_MAX  = 0.60   # [BECKER] raised to capture 51-60c inefficiency (+5.59% edge)
 BECKER_SELL_ZONE_MIN = 0.75   # SELL solo se mid > 75¢ (Becker edge -2.5 a -5%)
 BECKER_SELL_ZONE_MAX = 0.95   # SELL solo se mid < 95¢ (sopra = troppo vicino a 1)
+BECKER_FILTER_ENABLED = True   # [SHADOW] Set to False for Berserker data collection
 # [v4.2-C2] RMSE ECMWF reale per città (Seoul inverno/primavera, London primavera)
 CITY_SIGMA_BASE      = {"seoul": 2.8, "london": 2.2}
 CITY_SKEW_ALPHA      = {"seoul": -1.5, "london": -1.5}  # [FEAT1] negative = left-skewed max temps
@@ -3412,15 +3413,29 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 spread    = best_ask-best_bid
                 depth_usd = sum(b[1] for b in bids[:5])
                 T_check = hours_to_resolution(m) / 24.0
+                # [V5-FIX] Always log book microstructure regardless of filters
+                try:
+                    import json as _json_v5
+                    _v5_city = "seoul" if "seoul" in (m.get("question","") or "").lower() else "london"
+                    _v5_sp = round((spread / mid * 10000) if mid > 0 else 9999, 1)
+                    _v5_bd = round(sum(b[1] for b in bids[:5]), 2)
+                    _v5_ad = round(sum(a[1] for a in asks[:5]), 2)
+                    _v5_line = _json_v5.dumps({"ts": time.time(), "token_id": tid, "city": _v5_city, "mid": round(mid, 4), "spread_bp": _v5_sp, "bid_depth_usd": _v5_bd, "ask_depth_usd": _v5_ad, "edge_fc": 0.0, "true_p": 0.0, "T_days": round(T_check, 4)})
+                    with open("/home/ubuntu/polymarket-temp-bot/v5_book_data.jsonl", "a") as _v5f0:
+                        _v5f0.write(_v5_line + chr(10))
+                except Exception:
+                    pass
+
                 if spread>0.15 or depth_usd<MIN_DEPTH_USD: return
                 # [v4.6-fix8] Non quotare a meno di MIN_T_HOURS dalla risoluzione
                 if T_check < (MIN_T_HOURS/24.0): return  # [v4.15-fix12] explicit float division
 
                 # [v4.6-audit2] Becker zone filter: only trade in high-edge zones
                 # BUY 6-30¢, SELL 75-95¢, skip everything else
-                if not (BECKER_BUY_ZONE_MIN <= mid <= BECKER_BUY_ZONE_MAX or
-                        BECKER_SELL_ZONE_MIN <= mid <= BECKER_SELL_ZONE_MAX):
-                    return
+                if BECKER_FILTER_ENABLED:
+                    if not (BECKER_BUY_ZONE_MIN <= mid <= BECKER_BUY_ZONE_MAX or
+                            BECKER_SELL_ZONE_MIN <= mid <= BECKER_SELL_ZONE_MAX):
+                        return
 
                 q_text = m.get("question","")
                 city   = "seoul" if "seoul" in q_text.lower() else "london"
