@@ -1,23 +1,77 @@
 {
-  "ts": 1776242458.7912097,
-  "capital": 38.773089,
-  "total_exposure": 16.9436805,
-  "daily_pnl": 0.0,
-  "drawdown_pct": 0.169751,
-  "peak_capital": 46.70057,
-  "open_positions": 2,
+  "ts": 1776243712.8365736,
+  "capital": 27.479886,
+  "total_exposure": 36.41357925,
+  "daily_pnl": 565.451193,
+  "drawdown_pct": 0.291264,
+  "peak_capital": 38.773089,
+  "open_positions": 9,
   "exposure_by_city": {
-    "seoul": 6.442126,
-    "london": 3.84742
+    "london": 4.82102,
+    "seoul": 16.40877
   },
   "positions": {
+    "51689812446416415839333569221030452102486810312581307767816643958697669030258": {
+      "size": 178.3493,
+      "avg_price": 0.0097,
+      "notional": 1.7299882100000001,
+      "city": "seoul",
+      "title": "Will the highest temperature in Seoul be 17\u00b0C on April 16?",
+      "ts_updated": 1776243697.3437486,
+      "edge": 0.0
+    },
+    "50288949661585432905309249540352797308659401138972354224947357267728789250424": {
+      "size": 178.3049,
+      "avg_price": 0.005,
+      "notional": 0.8915245,
+      "city": "seoul",
+      "title": "Will the highest temperature in Seoul be 16\u00b0C on April 16?",
+      "ts_updated": 1776243697.3437564,
+      "edge": 0.0
+    },
+    "103598360030616510476480398506114921473320334841214843035323580214769624771055": {
+      "size": 174.3216,
+      "avg_price": 0.0198,
+      "notional": 3.45156768,
+      "city": "seoul",
+      "title": "Will the highest temperature in Seoul be 12\u00b0C on April 17?",
+      "ts_updated": 1776243697.34376,
+      "edge": 0.0
+    },
+    "13897536552958662270584600727103196482882401841732470648850896315033922446338": {
+      "size": 169.0238,
+      "avg_price": 0.013,
+      "notional": 2.1973094,
+      "city": "seoul",
+      "title": "Will the highest temperature in Seoul be 11\u00b0C on April 17?",
+      "ts_updated": 1776243697.343763,
+      "edge": 0.0
+    },
+    "55374340376022534318402860872554868063449035667495160241658216133401957204754": {
+      "size": 155.6197,
+      "avg_price": 0.0109,
+      "notional": 1.69625473,
+      "city": "seoul",
+      "title": "Will the highest temperature in Seoul be 10\u00b0C on April 17?",
+      "ts_updated": 1776243697.3437657,
+      "edge": 0.0
+    },
+    "61241164130023179702977671088547214966553139189316168187310101531813865709061": {
+      "size": 15.56,
+      "avg_price": 0.06,
+      "notional": 0.9336,
+      "city": "london",
+      "title": "Will the highest temperature in London be 16\u00b0C on April 17?",
+      "ts_updated": 1776243697.3438628,
+      "edge": 0.2691
+    },
     "86801664228397056728768911339185350838240430148443147855398285074267533940235": {
       "size": 12.6069,
       "avg_price": 0.511,
       "notional": 6.4421259,
       "city": "seoul",
       "title": "Will the highest temperature in Seoul be 21\u00b0C or higher on April 15?",
-      "ts_updated": 1776242446.4761195,
+      "ts_updated": 1776243697.343882,
       "edge": 0.4585
     },
     "88525760836648828625473012996147844293640777850424972464747630028258823187626": {
@@ -26,46 +80,55 @@
       "notional": 3.8474203300000003,
       "city": "london",
       "title": "Will the highest temperature in London be 17\u00b0C on April 15?",
-      "ts_updated": 1776242446.476129,
+      "ts_updated": 1776243697.3438919,
       "edge": 0.0578
+    },
+    "547775577437769089639382180524529289767510046475666640745015510056466439813": {
+      "size": 2.0,
+      "avg_price": 0.02,
+      "notional": 0.04,
+      "city": "london",
+      "title": "Will the highest temperature in London be 15\u00b0C on April 17?",
+      "ts_updated": 1776243697.3439455,
+      "edge": 0.0
     }
   },
   "trades_summary": {
-    "win_rate": 0.9803,
-    "sharpe": 0.6175,
-    "sortino": 0.8435,
-    "profit_factor": 53.23,
-    "expectancy": 7.717208,
-    "avg_win": 8.022788,
+    "win_rate": 0.981,
+    "sharpe": 0.4632,
+    "sortino": 1.0097,
+    "profit_factor": 65.7775,
+    "expectancy": 9.237974,
+    "avg_win": 9.562145,
     "avg_loss": -7.510842,
-    "avg_win_loss_ratio": 1.0682,
-    "calmar": 100.025,
+    "avg_win_loss_ratio": 1.2731,
+    "calmar": 124.0545,
     "max_dd_usd": 23.5316,
-    "total_pnl": 2353.748572,
-    "n_resolved": 305,
-    "n_wins": 299,
+    "total_pnl": 2919.199765,
+    "n_resolved": 316,
+    "n_wins": 310,
     "n_losses": 6,
-    "total_gross_win": 2398.813622,
+    "total_gross_win": 2964.264815,
     "total_gross_loss": -45.06505,
-    "n_total_entries": 460,
-    "n_total_exits": 332,
+    "n_total_entries": 489,
+    "n_total_exits": 333,
     "pnl_by_strategy": {
-      "MM": 2155.472031,
+      "MM": 2720.923224,
       "STOPLOSS": 198.276541
     },
     "pnl_by_city": {
-      "london": 1138.640114,
+      "london": 1704.091307,
       "seoul": 1215.108458
     },
-    "daily_pnl_ledger": 0.0,
-    "last_update_ts": 1776242458.7818136,
+    "daily_pnl_ledger": 565.451193,
+    "last_update_ts": 1776243712.8251076,
     "data_freshness_status": "ok",
     "sample_warning": null,
     "pnl_by_city_strategy": {
       "london_MM": {
-        "total_pnl": 1141.463164,
-        "n": 156,
-        "win_rate": 0.9936
+        "total_pnl": 1706.914357,
+        "n": 167,
+        "win_rate": 0.994
       },
       "seoul_STOPLOSS": {
         "total_pnl": 201.099591,
@@ -85,11 +148,11 @@
     }
   },
   "params": {
-    "MIN_FORECAST_EDGE": 0.01,
+    "MIN_FORECAST_EDGE": 0.02,
     "MISPRICING_THRESHOLD": 0.015,
     "MIN_MAKER_SPREAD": 0.0077,
     "MAX_DD": 0.15
   },
   "_source": "s3_watcher.py",
-  "_extracted_utc": "2026-04-15T08:41:08Z"
+  "_extracted_utc": "2026-04-15T09:02:01Z"
 }

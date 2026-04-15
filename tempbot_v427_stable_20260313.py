@@ -413,7 +413,7 @@ BECKER_BUY_ZONE_MIN  = 0.06   # BUY solo se mid > 6¢ (sotto = troppa varianza)
 BECKER_BUY_ZONE_MAX  = 0.60   # [BECKER] raised to capture 51-60c inefficiency (+5.59% edge)
 BECKER_SELL_ZONE_MIN = 0.75   # SELL solo se mid > 75¢ (Becker edge -2.5 a -5%)
 BECKER_SELL_ZONE_MAX = 0.95   # SELL solo se mid < 95¢ (sopra = troppo vicino a 1)
-BECKER_FILTER_ENABLED = True   # [SHADOW] Set to False for Berserker data collection
+BECKER_FILTER_ENABLED = True   # EMERGENCY SAFETY: DO NOT DISABLE ON PROD - Protects real capital
 # [v4.2-C2] RMSE ECMWF reale per città (Seoul inverno/primavera, London primavera)
 CITY_SIGMA_BASE      = {"seoul": 2.8, "london": 2.2}
 CITY_SKEW_ALPHA      = {"seoul": -1.5, "london": -1.5}  # [FEAT1] negative = left-skewed max temps
