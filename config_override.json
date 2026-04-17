@@ -1,11 +1,7 @@
 {
   "risk": {
     "MC_PATHS": 10000,
-    "MAX_PORTFOLIO_DD": 0.25,
-    "REENTRY_COOLDOWN_SEC": 0
+    "MAX_PORTFOLIO_DD": 0.25
   },
-  "trading": {
-    "MIN_FORECAST_EDGE": 0.02,
-    "MIN_DEPTH_USD": 15
-  }
+  "trading": {}
 }

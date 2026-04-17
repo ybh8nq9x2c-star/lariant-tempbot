@@ -1,49 +1,70 @@
 {
-  "ts": 1776441025.6099136,
-  "capital": 57.731136,
-  "total_exposure": 13.8383,
+  "ts": 1776456716.0267417,
+  "capital": 48.487419,
+  "total_exposure": 11.8421715,
   "daily_pnl": 0.0,
   "drawdown_pct": 0.0,
-  "peak_capital": 57.731136,
-  "open_positions": 0,
-  "exposure_by_city": {},
-  "positions": {},
+  "peak_capital": 48.487419,
+  "open_positions": 2,
+  "exposure_by_city": {
+    "london": 9.243703
+  },
+  "positions": {
+    "30116525312155486344264360102276723572533494302706501845988411431633135617789": {
+      "size": 41.3735,
+      "avg_price": 0.11,
+      "notional": 4.551085,
+      "city": "london",
+      "title": "Will the highest temperature in London be 14\u00b0C on April 19?",
+      "ts_updated": 1776456712.6674025,
+      "edge": 0.2557
+    },
+    "21274182381202285663683437283410705949175856834152261438747636857861789942410": {
+      "size": 22.3458,
+      "avg_price": 0.21,
+      "notional": 4.6926179999999995,
+      "city": "london",
+      "title": "Will the highest temperature in London be 16\u00b0C on April 18?",
+      "ts_updated": 1776456712.6674364,
+      "edge": 0.3466
+    }
+  },
   "trades_summary": {
-    "win_rate": 0.9813,
-    "sharpe": 0.4632,
-    "sortino": 1.0025,
-    "profit_factor": 66.331,
-    "expectancy": 9.171795,
-    "avg_win": 9.489559,
+    "win_rate": 0.9817,
+    "sharpe": 0.4617,
+    "sortino": 0.9894,
+    "profit_factor": 66.882,
+    "expectancy": 9.051748,
+    "avg_win": 9.360368,
     "avg_loss": -7.510842,
-    "avg_win_loss_ratio": 1.2634,
-    "calmar": 125.1146,
+    "avg_win_loss_ratio": 1.2462,
+    "calmar": 126.1696,
     "max_dd_usd": 23.5316,
-    "total_pnl": 2944.146105,
-    "n_resolved": 321,
-    "n_wins": 315,
+    "total_pnl": 2968.973405,
+    "n_resolved": 328,
+    "n_wins": 322,
     "n_losses": 6,
-    "total_gross_win": 2989.211155,
+    "total_gross_win": 3014.038455,
     "total_gross_loss": -45.06505,
-    "n_total_entries": 451,
+    "n_total_entries": 463,
     "n_total_exits": 317,
     "pnl_by_strategy": {
-      "MM": 2740.776064,
+      "MM": 2765.603364,
       "STOPLOSS": 203.370041
     },
     "pnl_by_city": {
-      "london": 1721.092306,
+      "london": 1745.919606,
       "seoul": 1223.053799
     },
     "daily_pnl_ledger": 0.0,
-    "last_update_ts": 1776441025.5985556,
+    "last_update_ts": 1776456716.016572,
     "data_freshness_status": "ok",
     "sample_warning": null,
     "pnl_by_city_strategy": {
       "london_MM": {
-        "total_pnl": 1723.915356,
-        "n": 170,
-        "win_rate": 0.9941
+        "total_pnl": 1748.742656,
+        "n": 177,
+        "win_rate": 0.9944
       },
       "seoul_STOPLOSS": {
         "total_pnl": 206.193091,
@@ -62,6 +83,12 @@
       }
     }
   },
-  "_source": "monitor_state.json",
-  "_extracted_utc": "2026-04-17T20:00:01.737962Z"
+  "params": {
+    "MIN_FORECAST_EDGE": 0.019,
+    "MISPRICING_THRESHOLD": 0.015,
+    "MIN_MAKER_SPREAD": 0.0077,
+    "MAX_DD": 0.15
+  },
+  "_source": "s3_watcher.py",
+  "_extracted_utc": "2026-04-17T20:12:04Z"
 }
