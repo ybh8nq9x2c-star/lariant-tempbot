@@ -1069,10 +1069,6 @@ async def _orderbook_public(token_id: str) -> Tuple[Optional[list], Optional[lis
     try:
         tid = clean_token_id(token_id)
         if not tid:
-                # [99C-RISK-PATCH] Re-entry block after forced 99c exit
-                if tid in _FORCED_EXIT_99C:
-                    return
-                
             return None, None
 
         r = await _async_get(
@@ -2654,10 +2650,9 @@ async def check_position_exit(client):
             sell_price = get_best_bid_for_token(token_id, client)
             if sell_price and sell_price > 0.01:
                 sell_price = max(0.01, round(sell_price - 0.001, 4))
-            sell_price = min(sell_price, 0.9899)  # [99C-FIX]
             else:
                 sell_price = max(0.01, round(cur_price - 0.005, 4))
-            sell_price = min(sell_price, 0.9899)  # [99C-FIX]
+            sell_price = min(sell_price, 0.9899)  # [99C-FIX] cap for neg-risk CLOB
             sell_notional = exit_size * sell_price
             if DRY_RUN:
                 log.info(f"[DRY] POSITION_EXIT [{exit_tier}] {title[:45]} "
@@ -3437,6 +3432,9 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 tid = clean_token_id(
                     m.get("clobTokenIds") or m.get("clob_token_ids") or "")
                 if not tid: return
+                # [99C-RISK-PATCH] Re-entry block after forced 99c exit
+                if tid in _FORCED_EXIT_99C:
+                    return
 
                 bids, asks = await get_book(tid, client, market_obj=m)  # [v4.22-fix-book-async]
                 if not bids or not asks: return
