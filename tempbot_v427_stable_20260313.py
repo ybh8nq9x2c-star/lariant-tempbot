@@ -3466,7 +3466,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                     _v5_sp = round((spread / mid * 10000) if mid > 0 else 9999, 1)
                     _v5_bd = round(sum(b[1] for b in bids[:5]), 2)
                     _v5_ad = round(sum(a[1] for a in asks[:5]), 2)
-                    _v5_line = _json_v5.dumps({"ts": time.time(), "token_id": tid, "city": _v5_city, "mid": round(mid, 4), "spread_bp": _v5_sp, "bid_depth_usd": _v5_bd, "ask_depth_usd": _v5_ad, "edge_fc": None, "true_p": None, "T_days": round(T_check, 4)})
+                    _v5_line = _json_v5.dumps({"ts": time.time(), "token_id": tid, "city": _v5_city, "mid": round(mid, 4), "spread_bp": _v5_sp, "bid_depth_usd": _v5_bd, "ask_depth_usd": _v5_ad, "edge_fc": None, "true_p": None, "T_days": round(T_check, 4), "phase": "pre"})
                     with open(_V5_BOOK_PATH, "a") as _v5f0:
                         _v5f0.write(_v5_line + chr(10))
                 except Exception:
@@ -3531,6 +3531,13 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                                                T_days=_T_adj, city=city,
                                                is_fallback=_is_fallback_mm,
                                                observed_max=_obs)  # [v4.25-eglc/rksi]
+                    # [V5-REFINE] Log true_p before Zero-Edge Guard return
+                    try:
+                        import json as _json5zg
+                        with open(_V5_BOOK_PATH, "a") as _v5fzg:
+                            _v5fzg.write(_json5zg.dumps({"ts": time.time(), "token_id": tid, "city": city, "mid": round(mid, 4), "true_p": round(true_p, 4), "phase": "post-fc"}) + chr(10))
+                    except Exception:
+                        pass
                     # [SEV-1 HOTFIX] Zero-Edge Guard (RELOCATED from ~3466)
                     if true_p <= 0.001 or mid <= 0.001:
                         log.debug(f"ZERO-EDGE SKIP: true_p={true_p:.4f} mid={mid:.4f} token={tid[:12]}")
@@ -3577,6 +3584,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                                 "edge_fc":       round(edge_fc, 4),
                                 "true_p":        round(true_p, 4),
                                 "T_days":        round(T, 4),
+                                "phase": "post",
                             }) + "\n")
                     except Exception as _v5e2:
                         pass
