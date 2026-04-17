@@ -594,8 +594,6 @@ LAST_BUY_EDGE: dict = {}
 # [v4.27-C] city_date -> set of exact thresholds with open inventory
 _adjacent_exact_registry: dict = {}
 _quant_meta_cache: dict = {}  # [QUANT] token_id → {fair_prob, mkt_prob, edge, kelly_frac, sizing_mode}
-# [RISK-99C] Token IDs that were force-exited at ≥99c — block re-entry until resolution
-_FORCED_EXIT_99C: set = set()
 
 def should_allow_buy_reentry(token_id: str, edge: float, now: float = None) -> bool:
     """[v4.27-A] Block BUY re-entry within REENTRY_COOLDOWN_SEC unless edge >= 1.5x prior."""
@@ -2553,6 +2551,14 @@ PARTIAL_PROFIT_PCT     = cfg("risk", "PARTIAL_PROFIT_PCT",     0.20)
 
 async def check_position_exit(client):
     """[v4.19-exit] Smart position exit: Kelly partial + full take-profit + time exit.
+    # [99C-RISK-PATCH] Tier -1: Forced exit at >=99c pre-resolution
+    if cur_price >= 0.99 and not p.get("redeemable", False):
+        exit_fraction = 1.0
+        exit_tier = "TIER_MINUS1_99C"
+        EVENTS.append({"ts": time.time(), "event": "FORCE_99C_EXIT", "slug": p.get("slug"), "outcome": p.get("outcome"), "price": cur_price, "size": p.get("size", 0), "reason": "pre_resolution_capital_protection"})
+        _FORCED_EXIT_99C.add(p.get("token_id", p.get("slug", "")))
+        return exit_fraction, exit_tier, pnl_pct, days_held
+    
 
     Tier 0: T < MIN_T_HOURS AND curPrice > 0.01 -> emergency full exit
     Tier 1: pnl >= TAKE_PROFIT_PCT*100          -> full take-profit exit
@@ -2613,20 +2619,9 @@ async def check_position_exit(client):
                             T_hours = hours_to_resolution(_mv)
                             break
             city = "seoul" if "seoul" in title.lower() else "london"
-            # ── [RISK-99C] Tier -1: Force exit at ≥99c pre-resolution (HIGHEST PRIORITY) ──
-            # No position should be held when token price ≥ 0.99 — residual reward negligible vs risk.
-            exit_tier = ""
             exit_fraction = 0.0
-            if cur_price >= 0.99 and not p.get("redeemable", False):
-                exit_fraction = 1.0
-                exit_tier = f"TIER_MINUS1_99C cur_price={cur_price:.4f} (FORCE EXIT)"
-                log.warning(f"FORCE_99C_EXIT slug={slug} outcome={title[:50]} "
-                            f"price={cur_price:.4f} size={size:.2f} "
-                            f"reason=pre_resolution_capital_protection")
-                EVENTS.log("FORCE_99C_EXIT", {"slug": slug, "price": cur_price,
-                            "size": size, "token": token_id[:16],
-                            "reason": "pre_resolution_capital_protection"})
-            elif T_hours < MIN_T_HOURS and cur_price > 0.01:
+            exit_tier = ""
+            if T_hours < MIN_T_HOURS and cur_price > 0.01:
                 exit_fraction = 1.0
                 exit_tier = f"TIER0_TIME T={T_hours:.2f}h<{MIN_T_HOURS}h"
             elif pnl_pct >= TAKE_PROFIT_PCT * 100:
@@ -2647,7 +2642,12 @@ async def check_position_exit(client):
                         (pnl_pct / 100.0) / (1.0 + pnl_pct / 100.0)))
                     exit_fraction = kelly_f
                     exit_tier = f"TIER2_PARTIAL pnl={pnl_pct:.1f}% kelly_f={kelly_f:.2f} T={T_hours:.1f}h"
+            if exit_fraction <= 0:
+                continue
             exit_size = round(size * exit_fraction, 2)
+            # [PATCH2] Safe floor: prevent CLOB reject from float precision mismatch
+            if exit_fraction >= 0.99:
+                exit_size = math.floor(exit_size * 100) / 100
             if exit_size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
                 continue
             sell_price = get_best_bid_for_token(token_id, client)
@@ -2655,6 +2655,7 @@ async def check_position_exit(client):
                 sell_price = max(0.01, round(sell_price - 0.001, 4))
             else:
                 sell_price = max(0.01, round(cur_price - 0.005, 4))
+            sell_price = min(sell_price, 0.9899)  # [99C-FIX] cap for neg-risk CLOB
             sell_notional = exit_size * sell_price
             if DRY_RUN:
                 log.info(f"[DRY] POSITION_EXIT [{exit_tier}] {title[:45]} "
@@ -2665,12 +2666,7 @@ async def check_position_exit(client):
                 f"size={exit_size:.2f}/{size:.2f} @ {sell_price:.4f} = ${sell_notional:.2f}")
             _exit_ok = await place_order(client, token_id, "SELL", sell_price, sell_notional,
                               city=city, strategy="STOPLOSS")  # [C1-FIX]
-            if _exit_ok:
-                # [RISK-99C] Block re-entry after forced 99c exit
-                if "TIER_MINUS1_99C" in exit_tier:
-                    _FORCED_EXIT_99C.add(token_id)
-                    log.warning(f"99C RE-ENTRY BLOCKED for token={token_id[:16]}")
-            else:
+            if not _exit_ok:
                 log.warning(f"POSITION_EXIT NOT SUBMITTED [{exit_tier}] {title[:40]}")
                 # [v4.31-fix3] Mark pending to prevent hammering on balance desync
                 STATE._sl_pending[token_id] = time.time()
@@ -2797,7 +2793,8 @@ async def check_position_stoploss(client):
                 if size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
                     log.info(f"STOPLOSS SKIP {title[:40]}: size={size:.2f} < 5 contracts minimum")
                     continue
-                sell_price = max(0.01, cur_price - 0.002)  # leggermente sotto per fill rapido
+                sell_price = max(0.01, cur_price - 0.002)
+                sell_price = min(sell_price, 0.9899)  # [99C-FIX]  # leggermente sotto per fill rapido
                 sell_notional = size * sell_price
 
                 log.warning(
@@ -3438,11 +3435,9 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 tid = clean_token_id(
                     m.get("clobTokenIds") or m.get("clob_token_ids") or "")
                 if not tid: return
-                # [RISK-99C] Block re-entry into tokens force-exited at ≥99c
+                # [99C-RISK-PATCH] Re-entry block after forced 99c exit
                 if tid in _FORCED_EXIT_99C:
-                    log.debug(f"99C RE-ENTRY BLOCKED: token={tid[:12]}")
                     return
-
 
                 bids, asks = await get_book(tid, client, market_obj=m)  # [v4.22-fix-book-async]
                 if not bids or not asks: return
@@ -3470,10 +3465,6 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 # [v4.6-fix8] Non quotare a meno di MIN_T_HOURS dalla risoluzione
                 if T_check < (MIN_T_HOURS/24.0): return  # [v4.15-fix12] explicit float division
 
-                # [SEV-1 HOTFIX] Zero-Edge Guard: no trade senza forecast calcolata
-                if true_p <= 0.001 or mid <= 0.001:
-                    log.debug(f"ZERO-EDGE SKIP: true_p={true_p:.4f} mid={mid:.4f} token={tid[:12]}")
-                    return
 
                 # [v4.6-audit2] Becker zone filter: only trade in high-edge zones
                 # BUY 6-30¢, SELL 75-95¢, skip everything else
@@ -3529,6 +3520,11 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                                                T_days=_T_adj, city=city,
                                                is_fallback=_is_fallback_mm,
                                                observed_max=_obs)  # [v4.25-eglc/rksi]
+                    # [SEV-1 HOTFIX] Zero-Edge Guard (RELOCATED from ~3466)
+                    if true_p <= 0.001 or mid <= 0.001:
+                        log.debug(f"ZERO-EDGE SKIP: true_p={true_p:.4f} mid={mid:.4f} token={tid[:12]}")
+                        return
+
                     _gls_edge, _ = get_gls_edge(mid)  # [v4.5-fix5] segnale primario
 
                     # [v4.6-audit-fix1+2] Edge direzionale, no abs(), no double-counting
