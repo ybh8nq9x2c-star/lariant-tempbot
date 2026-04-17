@@ -23,6 +23,13 @@ def _forced_send(self, req, **kw):
     return _orig_send(self, req, **kw)
 _req_adap.HTTPAdapter.send = _forced_send  # [v4.24-req-timeout]
 
+import os as _os
+_BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
+_SHADOW_SUFFIX = "_shadow" if "shadow" in _BASE_DIR else ""
+_V5_BOOK_PATH = _os.path.join(_BASE_DIR, f"v5_book_data{_SHADOW_SUFFIX}.jsonl")
+_ML_MODEL_PATH = _os.path.join(_BASE_DIR, "modello_final_lightgbm.joblib")
+
+
 """
 Polymarket Temperature Bot — Seoul / London LIVE  v4.24 STABLE (Becker Quant Edition)
 ═══════════════════════════════════════════════════════════════════
@@ -175,12 +182,11 @@ import family_risk  # [FAMILY] family-level risk gate
 try:
     import joblib as _joblib
     _warnings_early.filterwarnings("ignore", category=UserWarning, module="sklearn")  # [v4.32-ML] silence sklearn feature-name noise
-    _ML_MODEL = _joblib.load("/home/ubuntu/polymarket-temp-bot/modello_final_lightgbm.joblib")
+    _ML_MODEL = _joblib.load(_ML_MODEL_PATH)
     print(f"[ML] Modello caricato OK — {_ML_MODEL.n_features_in_} feature")
 except Exception as _ml_err:
     _ML_MODEL = None
     print(f"[ML] Modello non disponibile (fallback edge raw): {_ml_err}")
-
 def ml_weight_edge(edge: float, mid: float, city: str, T: float) -> float:
     """[v4.32-ML] Pesa l'edge con P(win) del modello. Fallback = edge originale."""
     if _ML_MODEL is None or edge <= 0:
@@ -414,6 +420,12 @@ BECKER_BUY_ZONE_MAX  = 0.60   # [BECKER] raised to capture 51-60c inefficiency (
 BECKER_SELL_ZONE_MIN = 0.75   # SELL solo se mid > 75¢ (Becker edge -2.5 a -5%)
 BECKER_SELL_ZONE_MAX = 0.95   # SELL solo se mid < 95¢ (sopra = troppo vicino a 1)
 BECKER_FILTER_ENABLED = True   # EMERGENCY SAFETY: DO NOT DISABLE ON PROD - Protects real capital
+# [SEV-1] Environment isolation — SHADOW deve usare file/config separati
+BOT_ENV = "live" if "shadow" not in _os.path.abspath(__file__) else "shadow"
+if BOT_ENV == "shadow":
+    DRY_RUN = True  # Shadow NON deve mai tradare con soldi veri
+    print("⚠️  SHADOW MODE: DRY_RUN=True enforced, no real trades")
+
 # [v4.2-C2] RMSE ECMWF reale per città (Seoul inverno/primavera, London primavera)
 CITY_SIGMA_BASE      = {"seoul": 2.8, "london": 2.2}
 CITY_SKEW_ALPHA      = {"seoul": -1.5, "london": -1.5}  # [FEAT1] negative = left-skewed max temps
@@ -2217,6 +2229,13 @@ async def update_pnl_from_fills(client):  # [v4.17-fix-pnl] converted to async
             # per ricostruire strategy/city/bucket — se non disponibili usiamo
             # valori di default ("MM", "london").
             if token_id_fill and price > 0 and size > 0:
+                # [SEV-1 HOTFIX] Becker Guard su DCA fills — blocca fill fuori zona
+                if BECKER_FILTER_ENABLED:
+                    if not (BECKER_BUY_ZONE_MIN <= price <= BECKER_BUY_ZONE_MAX or
+                            BECKER_SELL_ZONE_MIN <= price <= BECKER_SELL_ZONE_MAX):
+                        log.warning(f"DCA BECKER BLOCK: price={price:.4f} outside zones, token={token_id_fill[:12]}")
+                        continue
+
                 order_meta = STATE.get_order_meta(token_id_fill) if hasattr(STATE, 'get_order_meta') else {}
                 strategy_fill = order_meta.get("strategy", "MM")
                 city_fill     = order_meta.get("city", "london")
@@ -3421,7 +3440,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                     _v5_bd = round(sum(b[1] for b in bids[:5]), 2)
                     _v5_ad = round(sum(a[1] for a in asks[:5]), 2)
                     _v5_line = _json_v5.dumps({"ts": time.time(), "token_id": tid, "city": _v5_city, "mid": round(mid, 4), "spread_bp": _v5_sp, "bid_depth_usd": _v5_bd, "ask_depth_usd": _v5_ad, "edge_fc": 0.0, "true_p": 0.0, "T_days": round(T_check, 4)})
-                    with open("/home/ubuntu/polymarket-temp-bot/v5_book_data.jsonl", "a") as _v5f0:
+                    with open(_V5_BOOK_PATH, "a") as _v5f0:
                         _v5f0.write(_v5_line + chr(10))
                 except Exception:
                     pass
@@ -3429,6 +3448,11 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 if spread>0.15 or depth_usd<MIN_DEPTH_USD: return
                 # [v4.6-fix8] Non quotare a meno di MIN_T_HOURS dalla risoluzione
                 if T_check < (MIN_T_HOURS/24.0): return  # [v4.15-fix12] explicit float division
+
+                # [SEV-1 HOTFIX] Zero-Edge Guard: no trade senza forecast calcolata
+                if true_p <= 0.001 or mid <= 0.001:
+                    log.debug(f"ZERO-EDGE SKIP: true_p={true_p:.4f} mid={mid:.4f} token={tid[:12]}")
+                    return
 
                 # [v4.6-audit2] Becker zone filter: only trade in high-edge zones
                 # BUY 6-30¢, SELL 75-95¢, skip everything else
@@ -3513,7 +3537,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                         _v5_sp2 = round((spread / mid * 10000) if mid > 0 else 9999, 1)
                         _v5_bd2 = round(sum(b[1] for b in bids[:5]), 4)
                         _v5_ad2 = round(sum(a[1] for a in asks[:5]), 4)
-                        with open("/home/ubuntu/polymarket-temp-bot/v5_book_data.jsonl", "a") as _v5f2:
+                        with open(_V5_BOOK_PATH, "a") as _v5f2:
                             _v5f2.write(_json5.dumps({
                                 "ts":            time.time(),
                                 "token_id":      tid,
@@ -3654,7 +3678,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                             _v5_spread_bp   = round((spread / mid * 10000) if mid > 0 else 9999, 1)
                             _v5_bid_depth   = round(sum(b[1] for b in bids[:5]), 4)
                             _v5_ask_depth   = round(sum(a[1] for a in asks[:5]), 4)
-                            with open("/home/ubuntu/polymarket-temp-bot/v5_book_data.jsonl", "a") as _v5f:
+                            with open(_V5_BOOK_PATH, "a") as _v5f:
                                 _v5f.write(_json.dumps({
                                     "ts":            time.time(),
                                     "token_id":      tid,
