@@ -28,6 +28,9 @@ _BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
 _SHADOW_SUFFIX = "_shadow" if "shadow" in _BASE_DIR else ""
 _V5_BOOK_PATH = _os.path.join(_BASE_DIR, f"v5_book_data{_SHADOW_SUFFIX}.jsonl")
 _ML_MODEL_PATH = _os.path.join(_BASE_DIR, "modello_final_lightgbm.joblib")
+# [P0-A] Forced 99c exit re-entry tracker
+_FORCED_EXIT_99C: set = set()
+
 
 
 """
@@ -2621,6 +2624,16 @@ async def check_position_exit(client):
             city = "seoul" if "seoul" in title.lower() else "london"
             exit_fraction = 0.0
             exit_tier = ""
+            # [P0-D] TIER_MINUS1: Forced exit at >=99c pre-resolution
+            if cur_price >= 0.99 and not p.get("redeemable", False):
+                exit_fraction = 1.0
+                exit_tier = "TIER_MINUS1_99C"
+                EVENTS.append({"ts": time.time(), "event": "FORCE_99C_EXIT",
+                               "slug": p.get("slug"), "outcome": p.get("outcome"),
+                               "price": cur_price, "size": p.get("size", 0),
+                               "reason": "pre_resolution_capital_protection"})
+                _FORCED_EXIT_99C.add(p.get("token_id", p.get("slug", "")))
+                log.warning(f"FORCE_99C_EXIT: {title[:40]} price={cur_price:.4f} size={size:.2f}")
             if T_hours < MIN_T_HOURS and cur_price > 0.01:
                 exit_fraction = 1.0
                 exit_tier = f"TIER0_TIME T={T_hours:.2f}h<{MIN_T_HOURS}h"
@@ -3017,7 +3030,7 @@ async def check_kill_switch(client, capital: float):  # [v4.17-fix-pnl] async pr
     if STATE.peak_capital > 0:
         dd = (STATE.peak_capital-capital)/STATE.peak_capital
         log.info(f"PORTFOLIO DD: {dd:.1%} (peak=${STATE.peak_capital:.2f})")
-        if False and dd >= MAX_PORTFOLIO_DD:  # [TESTING] hard stop temporarily disabled
+        if dd >= MAX_PORTFOLIO_DD:  # [P0-C] Kill-switch RE-ENABLED
             log.warning(f"HARD STOP! DD={dd:.1%}")
             print(f"🛑 HARD STOP! DD={dd:.1%} — pausa 24h")
             EVENTS.kill_activated(f"DD={dd:.1%}", 24, capital, dd)
@@ -3045,7 +3058,7 @@ async def check_kill_switch(client, capital: float):  # [v4.17-fix-pnl] async pr
     effective_daily_pnl = min(STATE.daily_pnl, equity_daily_loss_usd)  # entrambi USD
 
     threshold = DAILY_STOPLOSS * STATE._daily_reset_capital  # USD, basato su capitale snapshot
-    if False and effective_daily_pnl < threshold:  # [TESTING] kill-switch temporarily disabled
+    if effective_daily_pnl < threshold:  # [P0-C] Kill-switch RE-ENABLED
         log.warning(f"KILL-SWITCH! pnl={effective_daily_pnl:.4f} < {threshold:.4f}")
         print(f"🔴 KILL-SWITCH! pnl={effective_daily_pnl:.4f} — pausa 24h")
         EVENTS.kill_activated(f"daily_pnl={effective_daily_pnl:.4f}", 24, capital, 0)
@@ -3773,10 +3786,14 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 async with _mm_sem:
                     return await _mm_task(m)
 
-            await asyncio.gather(
+            # [P0-B] Log _mm_task exceptions (no more silent failures)
+            _mm_results = await asyncio.gather(
                 *[_mm_task_limited(m) for m in markets],
                 return_exceptions=True,
             )
+            for _mm_r in _mm_results:
+                if isinstance(_mm_r, Exception):
+                    log.error(f"[P0-B] _mm_task FAILED: {_mm_r}")
 
             if args.dry_check:
                 print("\n✅ DRY-CHECK COMPLETE — nessun ordine piazzato.")
@@ -4329,10 +4346,10 @@ class SelfMonitor:
             skipped = []
             allowed = (set(self.PARAM_BOUNDS.keys()) | {
                 "TAKE_PROFIT_PCT", "PARTIAL_PROFIT_PCT", "POSITION_EXIT_INTERVAL",  # [v4.19-exit]
-                "LOOP_SLEEP", "MC_PATHS", "MAX_PORTFOLIO_DD",
-                "MIN_DEPTH_USD", "MAX_RUIN_PROB", "CANCEL_MIN_WAIT",
+                "LOOP_SLEEP",  # [P0-E] MC_PATHS, MAX_PORTFOLIO_DD removed from hot-reload
+                # "MIN_DEPTH_USD" [P0-E] REMOVED from hot-reload
                 "MAX_ORDERS_PER_CYCLE", "MAX_TOTAL_EXPOSURE_FRAC",
-                "MAX_TOKEN_EXPOSURE_FRAC", "REENTRY_COOLDOWN_SEC",  # [v4.27]
+                # "REENTRY_COOLDOWN_SEC" [P0-E] REMOVED from hot-reload
                 "MAX_FAMILY_WORSTCASE_LOSS_USD", "MAX_FAMILY_OUTSIDE_LOSS_USD",
                 "MAX_FAMILY_COST_USD", "ENABLE_FAMILY_RISK_GATE",
                 "MAX_FAMILY_SELL_WORSENING_USD",  # [FAMILY]
