@@ -28,7 +28,7 @@
       "seoul": 1223.053799
     },
     "daily_pnl_ledger": 0.0,
-    "last_update_ts": 1776456716.016572,
+    "last_update_ts": 1776458156.923284,
     "data_freshness_status": "ok",
     "sample_warning": null,
     "pnl_by_city_strategy": {
@@ -60,7 +60,7 @@
     "MIN_MAKER_SPREAD": 0.0077,
     "MAX_DD": 0.15
   },
-  "ts": 1776456716.0267417,
+  "ts": 1776458156.9334702,
   "daily_pnl": 0.0,
   "daily_reset_ts": 1776456650.495865,
   "daily_reset_capital": 48.487419,
@@ -1067,7 +1067,7 @@
     "0x92ad8874a6c735e10733e37a23cd33f9b2edd026997a4c9c31ccd40e6c096f2b"
   ],
   "capital": 48.487419,
-  "total_exposure": 11.8421715,
+  "total_exposure": 6.7237075,
   "kill_until": 0.0,
   "positions": {
     "30116525312155486344264360102276723572533494302706501845988411431633135617789": {
@@ -1076,7 +1076,7 @@
       "notional": 4.551085,
       "city": "london",
       "title": "Will the highest temperature in London be 14\u00b0C on April 19?",
-      "ts_updated": 1776456712.6674025,
+      "ts_updated": 1776458144.2537615,
       "edge": 0.2557
     },
     "21274182381202285663683437283410705949175856834152261438747636857861789942410": {
@@ -1085,7 +1085,7 @@
       "notional": 4.6926179999999995,
       "city": "london",
       "title": "Will the highest temperature in London be 16\u00b0C on April 18?",
-      "ts_updated": 1776456712.6674364,
+      "ts_updated": 1776458144.253797,
       "edge": 0.3466
     }
   },
@@ -1122,7 +1122,7 @@
       "best_case_net": 36.822415,
       "worst_case_net": -4.551085,
       "uncovered_loss": -4.551085,
-      "last_update_ts": 1776456716.026846,
+      "last_update_ts": 1776458156.9335685,
       "partial": false
     },
     "london_2026-04-18_exact": {
@@ -1147,7 +1147,7 @@
       "best_case_net": 17.653182,
       "worst_case_net": -4.692618,
       "uncovered_loss": -4.692618,
-      "last_update_ts": 1776456716.0268636,
+      "last_update_ts": 1776458156.9335861,
       "partial": false
     }
   },
