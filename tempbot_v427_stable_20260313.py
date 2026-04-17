@@ -2654,8 +2654,10 @@ async def check_position_exit(client):
             sell_price = get_best_bid_for_token(token_id, client)
             if sell_price and sell_price > 0.01:
                 sell_price = max(0.01, round(sell_price - 0.001, 4))
+            sell_price = min(sell_price, 0.9899)  # [99C-FIX]
             else:
                 sell_price = max(0.01, round(cur_price - 0.005, 4))
+            sell_price = min(sell_price, 0.9899)  # [99C-FIX]
             sell_notional = exit_size * sell_price
             if DRY_RUN:
                 log.info(f"[DRY] POSITION_EXIT [{exit_tier}] {title[:45]} "
@@ -2793,7 +2795,8 @@ async def check_position_stoploss(client):
                 if size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
                     log.info(f"STOPLOSS SKIP {title[:40]}: size={size:.2f} < 5 contracts minimum")
                     continue
-                sell_price = max(0.01, cur_price - 0.002)  # leggermente sotto per fill rapido
+                sell_price = max(0.01, cur_price - 0.002)
+                sell_price = min(sell_price, 0.9899)  # [99C-FIX]  # leggermente sotto per fill rapido
                 sell_notional = size * sell_price
 
                 log.warning(
