@@ -2657,10 +2657,8 @@ async def check_position_exit(client):
                     exit_tier = f"TIER2_PARTIAL pnl={pnl_pct:.1f}% kelly_f={kelly_f:.2f} T={T_hours:.1f}h"
             if exit_fraction <= 0:
                 continue
-            exit_size = round(size * exit_fraction, 2)
+            exit_size = math.floor(size * exit_fraction * 100) / 100  # [P2-1] Safe floor for ALL exits
             # [PATCH2] Safe floor: prevent CLOB reject from float precision mismatch
-            if exit_fraction >= 0.99:
-                exit_size = math.floor(exit_size * 100) / 100
             if exit_size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
                 continue
             sell_price = get_best_bid_for_token(token_id, client)
@@ -3468,7 +3466,7 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                     _v5_sp = round((spread / mid * 10000) if mid > 0 else 9999, 1)
                     _v5_bd = round(sum(b[1] for b in bids[:5]), 2)
                     _v5_ad = round(sum(a[1] for a in asks[:5]), 2)
-                    _v5_line = _json_v5.dumps({"ts": time.time(), "token_id": tid, "city": _v5_city, "mid": round(mid, 4), "spread_bp": _v5_sp, "bid_depth_usd": _v5_bd, "ask_depth_usd": _v5_ad, "edge_fc": 0.0, "true_p": 0.0, "T_days": round(T_check, 4)})
+                    _v5_line = _json_v5.dumps({"ts": time.time(), "token_id": tid, "city": _v5_city, "mid": round(mid, 4), "spread_bp": _v5_sp, "bid_depth_usd": _v5_bd, "ask_depth_usd": _v5_ad, "edge_fc": None, "true_p": None, "T_days": round(T_check, 4)})
                     with open(_V5_BOOK_PATH, "a") as _v5f0:
                         _v5f0.write(_v5_line + chr(10))
                 except Exception:
@@ -3729,6 +3727,9 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                         if directional_edge < MIN_FORECAST_EDGE:
                             log.warning(f"HARD GUARD BLOCK MM: directional_edge={directional_edge:.4f} < MIN_FORECAST_EDGE={MIN_FORECAST_EDGE} for {tid[:12]}")
                             return
+                        log.info(f"ORDER SENT MM BUY {city.upper()} token={tid[:12]} "
+                                     f"price={bid_adj:.4f} size={size:.2f} notional=${size*bid_adj:.2f} "
+                                     f"edge_fc={edge_fc:.4f} true_p={true_p:.4f}")
                         print("[DBG7] calling place_order MM", flush=True)
                         try:
                             await asyncio.wait_for(place_order(client, tid, "BUY", bid_adj, size, city=city, strategy="MM"), timeout=15.0)
@@ -3770,6 +3771,9 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                             return
                         _orders_this_cycle += 1  # [v4.24-race] prenota slot prima await
                         # [v4.9-fix] Rimosso neg-risk skip: era sbagliato.
+                        log.info(f"ORDER SENT MM SELL {city.upper()} token={tid[:12]} "
+                                     f"price={ask_adj:.4f} size={size:.2f} notional=${size*ask_adj:.2f} "
+                                     f"edge_fc={edge_fc:.4f} true_p={true_p:.4f}")
                         print("[DBG7] calling place_order MM", flush=True)
                         try:
                             await asyncio.wait_for(place_order(client, tid, "SELL", ask_adj, size, city=city, strategy="MM"), timeout=15.0)
@@ -3898,7 +3902,7 @@ class SelfMonitor:
 
     # ── Parametri baseline (bounds per auto-tuning) ─────────────
     PARAM_BOUNDS = {
-        "MIN_FORECAST_EDGE":    (0.010, 0.040),
+                    "MIN_FORECAST_EDGE":    (0.010, 0.040),
         "MISPRICING_THRESHOLD": (0.003, 0.015),
         "MIN_MAKER_SPREAD":     (0.005, 0.015),
         "MAX_DD":               (0.08,  0.20),
@@ -3923,7 +3927,7 @@ class SelfMonitor:
         self.last_reload:   float = 0.0
         self.last_config_mtime: float = 0.0
         self.param_baseline = {
-            "MIN_FORECAST_EDGE":    MIN_FORECAST_EDGE,
+                    "MIN_FORECAST_EDGE":    MIN_FORECAST_EDGE,
             "MISPRICING_THRESHOLD": MISPRICING_THRESHOLD,
             "MIN_MAKER_SPREAD":     MIN_MAKER_SPREAD,
             "MAX_DD":               MAX_DD,
