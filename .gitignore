@@ -48,3 +48,7 @@ Thumbs.db
 
 # === ARCHIVE LEDGERS ===
 archive_ledgers/
+tempbot.log.old.*
+tempbot_v427_stable_*.pre-99c
+tempbot_v427_stable_*.bak.*
+archive_data/

@@ -2645,6 +2645,9 @@ async def check_position_exit(client):
             if exit_fraction <= 0:
                 continue
             exit_size = round(size * exit_fraction, 2)
+            # [PATCH2] Safe floor: prevent CLOB reject from float precision mismatch
+            if exit_fraction >= 0.99:
+                exit_size = math.floor(exit_size * 100) / 100
             if exit_size < 5.0:  # [v4.31-fix2] CLOB rejects < 5 contracts
                 continue
             sell_price = get_best_bid_for_token(token_id, client)
@@ -3462,10 +3465,6 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                 # [v4.6-fix8] Non quotare a meno di MIN_T_HOURS dalla risoluzione
                 if T_check < (MIN_T_HOURS/24.0): return  # [v4.15-fix12] explicit float division
 
-                # [SEV-1 HOTFIX] Zero-Edge Guard: no trade senza forecast calcolata
-                if true_p <= 0.001 or mid <= 0.001:
-                    log.debug(f"ZERO-EDGE SKIP: true_p={true_p:.4f} mid={mid:.4f} token={tid[:12]}")
-                    return
 
                 # [v4.6-audit2] Becker zone filter: only trade in high-edge zones
                 # BUY 6-30¢, SELL 75-95¢, skip everything else
@@ -3521,6 +3520,11 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                                                T_days=_T_adj, city=city,
                                                is_fallback=_is_fallback_mm,
                                                observed_max=_obs)  # [v4.25-eglc/rksi]
+                    # [SEV-1 HOTFIX] Zero-Edge Guard (RELOCATED from ~3466)
+                    if true_p <= 0.001 or mid <= 0.001:
+                        log.debug(f"ZERO-EDGE SKIP: true_p={true_p:.4f} mid={mid:.4f} token={tid[:12]}")
+                        return
+
                     _gls_edge, _ = get_gls_edge(mid)  # [v4.5-fix5] segnale primario
 
                     # [v4.6-audit-fix1+2] Edge direzionale, no abs(), no double-counting

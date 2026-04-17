@@ -1,8 +1,8 @@
 {
-  "ts": 1776413132.1394205,
+  "ts": 1776440309.1256888,
   "capital": 57.731136,
-  "total_exposure": 0.034668950000000004,
-  "daily_pnl": 5.0935,
+  "total_exposure": 0.0,
+  "daily_pnl": 0.0,
   "drawdown_pct": 0.0,
   "peak_capital": 57.731136,
   "open_positions": 0,
@@ -35,8 +35,8 @@
       "london": 1721.092306,
       "seoul": 1223.053799
     },
-    "daily_pnl_ledger": 5.0935,
-    "last_update_ts": 1776413132.1284766,
+    "daily_pnl_ledger": 0.0,
+    "last_update_ts": 1776440309.097606,
     "data_freshness_status": "ok",
     "sample_warning": null,
     "pnl_by_city_strategy": {
@@ -62,6 +62,12 @@
       }
     }
   },
-  "_source": "monitor_state.json",
-  "_extracted_utc": "2026-04-17T08:06:01.122672Z"
+  "params": {
+    "MIN_FORECAST_EDGE": 0.02,
+    "MISPRICING_THRESHOLD": 0.015,
+    "MIN_MAKER_SPREAD": 0.0077,
+    "MAX_DD": 0.15
+  },
+  "_source": "s3_watcher.py",
+  "_extracted_utc": "2026-04-17T15:38:43Z"
 }

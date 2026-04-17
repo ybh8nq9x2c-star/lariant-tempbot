@@ -1,13 +1,13 @@
 {
   "ema_errors": {
-    "gfs_seamless": 2.048,
-    "icon_seamless": 2.1595,
-    "meteofrance_seamless": 2.287
+    "gfs_seamless": 1.8308,
+    "icon_seamless": 2.0006,
+    "meteofrance_seamless": 2.0939
   },
   "dynamic_weights": {
-    "gfs_seamless": 0.3516,
-    "icon_seamless": 0.3335,
-    "meteofrance_seamless": 0.3149
+    "gfs_seamless": 0.3585,
+    "icon_seamless": 0.3281,
+    "meteofrance_seamless": 0.3134
   },
-  "last_eval_ts": 1776333019.1457598
+  "last_eval_ts": 1776419421.0407534
 }
