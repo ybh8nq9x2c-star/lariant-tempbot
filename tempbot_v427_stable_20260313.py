@@ -1069,6 +1069,10 @@ async def _orderbook_public(token_id: str) -> Tuple[Optional[list], Optional[lis
     try:
         tid = clean_token_id(token_id)
         if not tid:
+                # [99C-RISK-PATCH] Re-entry block after forced 99c exit
+                if tid in _FORCED_EXIT_99C:
+                    return
+                
             return None, None
 
         r = await _async_get(
@@ -2551,6 +2555,14 @@ PARTIAL_PROFIT_PCT     = cfg("risk", "PARTIAL_PROFIT_PCT",     0.20)
 
 async def check_position_exit(client):
     """[v4.19-exit] Smart position exit: Kelly partial + full take-profit + time exit.
+    # [99C-RISK-PATCH] Tier -1: Forced exit at >=99c pre-resolution
+    if cur_price >= 0.99 and not p.get("redeemable", False):
+        exit_fraction = 1.0
+        exit_tier = "TIER_MINUS1_99C"
+        EVENTS.append({"ts": time.time(), "event": "FORCE_99C_EXIT", "slug": p.get("slug"), "outcome": p.get("outcome"), "price": cur_price, "size": p.get("size", 0), "reason": "pre_resolution_capital_protection"})
+        _FORCED_EXIT_99C.add(p.get("token_id", p.get("slug", "")))
+        return exit_fraction, exit_tier, pnl_pct, days_held
+    
 
     Tier 0: T < MIN_T_HOURS AND curPrice > 0.01 -> emergency full exit
     Tier 1: pnl >= TAKE_PROFIT_PCT*100          -> full take-profit exit
