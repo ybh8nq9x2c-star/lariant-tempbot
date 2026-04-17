@@ -1,7 +1,7 @@
 {
-  "ts": 1776458156.9334702,
+  "ts": 1776458591.0575829,
   "capital": 48.487419,
-  "total_exposure": 6.7237075,
+  "total_exposure": 7.9649125000000005,
   "daily_pnl": 0.0,
   "drawdown_pct": 0.0,
   "peak_capital": 48.487419,
@@ -16,7 +16,7 @@
       "notional": 4.551085,
       "city": "london",
       "title": "Will the highest temperature in London be 14\u00b0C on April 19?",
-      "ts_updated": 1776458144.2537615,
+      "ts_updated": 1776458557.9333313,
       "edge": 0.2557
     },
     "21274182381202285663683437283410705949175856834152261438747636857861789942410": {
@@ -25,7 +25,7 @@
       "notional": 4.6926179999999995,
       "city": "london",
       "title": "Will the highest temperature in London be 16\u00b0C on April 18?",
-      "ts_updated": 1776458144.253797,
+      "ts_updated": 1776458557.9333625,
       "edge": 0.3466
     }
   },
@@ -57,7 +57,7 @@
       "seoul": 1223.053799
     },
     "daily_pnl_ledger": 0.0,
-    "last_update_ts": 1776458156.923284,
+    "last_update_ts": 1776458591.0473156,
     "data_freshness_status": "ok",
     "sample_warning": null,
     "pnl_by_city_strategy": {
@@ -83,6 +83,12 @@
       }
     }
   },
-  "_source": "monitor_state.json",
-  "_extracted_utc": "2026-04-17T20:36:01.490692Z"
+  "params": {
+    "MIN_FORECAST_EDGE": 0.019,
+    "MISPRICING_THRESHOLD": 0.015,
+    "MIN_MAKER_SPREAD": 0.0077,
+    "MAX_DD": 0.15
+  },
+  "_source": "s3_watcher.py",
+  "_extracted_utc": "2026-04-17T20:43:15Z"
 }
