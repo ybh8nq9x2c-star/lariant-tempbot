@@ -1,0 +1,1152 @@
+{
+  "timestamp": "2026-04-27T08:29:17.614643+00:00",
+  "overall_status": "PASS",
+  "all_passed": true,
+  "data_dir": "/a0/usr/projects/tempbot",
+  "tests": [
+    {
+      "name": "V1_WU_vs_METAR_REAL",
+      "description": "WU daily high vs METAR body (real)",
+      "passed": true,
+      "skipped": false,
+      "pass_count": 40,
+      "fail_count": 0,
+      "total": 40,
+      "details": [
+        {
+          "date": "2024-01-01",
+          "wu_max": 12.0,
+          "iem_max": 12.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-06",
+          "wu_max": 7.0,
+          "iem_max": 7.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-12",
+          "wu_max": 6.0,
+          "iem_max": 6.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-13",
+          "wu_max": 4.0,
+          "iem_max": 4.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-14",
+          "wu_max": 6.0,
+          "iem_max": 6.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-20",
+          "wu_max": 6.0,
+          "iem_max": 6.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-21",
+          "wu_max": 13.0,
+          "iem_max": 13.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-28",
+          "wu_max": 13.0,
+          "iem_max": 13.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-01-29",
+          "wu_max": 12.0,
+          "iem_max": 12.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-03",
+          "wu_max": 13.0,
+          "iem_max": 13.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-05",
+          "wu_max": 12.0,
+          "iem_max": 12.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-13",
+          "wu_max": 12.0,
+          "iem_max": 12.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-14",
+          "wu_max": 14.0,
+          "iem_max": 14.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-15",
+          "wu_max": 18.0,
+          "iem_max": 18.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-18",
+          "wu_max": 15.0,
+          "iem_max": 15.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-24",
+          "wu_max": 9.0,
+          "iem_max": 9.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-02-27",
+          "wu_max": 9.0,
+          "iem_max": 9.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-03-16",
+          "wu_max": 14.0,
+          "iem_max": 14.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-03-18",
+          "wu_max": 15.0,
+          "iem_max": 15.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-03-30",
+          "wu_max": 16.0,
+          "iem_max": 16.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-07",
+          "wu_max": 17.0,
+          "iem_max": 17.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-08",
+          "wu_max": 17.0,
+          "iem_max": 17.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-09",
+          "wu_max": 13.0,
+          "iem_max": 13.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-23",
+          "wu_max": 11.0,
+          "iem_max": 11.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-24",
+          "wu_max": 10.0,
+          "iem_max": 10.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-27",
+          "wu_max": 11.0,
+          "iem_max": 11.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-04-29",
+          "wu_max": 16.0,
+          "iem_max": 16.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-05-06",
+          "wu_max": 15.0,
+          "iem_max": 15.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-05-21",
+          "wu_max": 15.0,
+          "iem_max": 15.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-05-26",
+          "wu_max": 20.0,
+          "iem_max": 20.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-05-28",
+          "wu_max": 18.0,
+          "iem_max": 18.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-05-30",
+          "wu_max": 18.0,
+          "iem_max": 18.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-06-02",
+          "wu_max": 23.0,
+          "iem_max": 23.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-06-10",
+          "wu_max": 15.0,
+          "iem_max": 15.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-07-17",
+          "wu_max": 24.0,
+          "iem_max": 24.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-07-18",
+          "wu_max": 28.0,
+          "iem_max": 28.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-08-08",
+          "wu_max": 22.0,
+          "iem_max": 22.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-08-18",
+          "wu_max": 24.0,
+          "iem_max": 24.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-08-22",
+          "wu_max": 20.0,
+          "iem_max": 20.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "date": "2024-08-30",
+          "wu_max": 22.0,
+          "iem_max": 22.0,
+          "delta": 0.0,
+          "original": "True",
+          "status": "PASS"
+        }
+      ],
+      "evidence": {
+        "match_rate": "40/40",
+        "source": "/a0/usr/projects/tempbot/EGLC_WU_METAR_DAILY_COMPARISON.csv"
+      }
+    },
+    {
+      "name": "V2_BST_Bucketing_REAL",
+      "description": "BST bucketing (real)",
+      "passed": true,
+      "skipped": false,
+      "pass_count": 1920,
+      "fail_count": 0,
+      "total": 1920,
+      "details": [
+        {
+          "utc_ts": "2024-01-01 00:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 00:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 01:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 01:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 02:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 02:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 03:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 03:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 04:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 04:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 05:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 05:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 06:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 06:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 07:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 07:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 08:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 08:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 09:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 09:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 10:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 10:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 11:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 11:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 12:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 12:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 13:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 13:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 14:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 14:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 15:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 15:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 16:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 16:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 17:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 17:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 18:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 18:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 19:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 19:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 20:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 20:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 21:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 21:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 22:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 22:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 23:20",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-01 23:50",
+          "expected": "2024-01-01",
+          "observed": "2024-01-01",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-06 00:20",
+          "expected": "2024-01-06",
+          "observed": "2024-01-06",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        },
+        {
+          "utc_ts": "2024-01-06 00:50",
+          "expected": "2024-01-06",
+          "observed": "2024-01-06",
+          "tz": "GMT",
+          "original": "True",
+          "status": "PASS"
+        }
+      ],
+      "evidence": {
+        "match_rate": "1920/1920",
+        "source": "/a0/usr/projects/tempbot/EGLC_BST_BUCKETING_TEST.csv"
+      }
+    },
+    {
+      "name": "V3_REAL",
+      "description": "Body vs T-group (real)",
+      "passed": false,
+      "skipped": true,
+      "skip_reason": "No t_group column in CSV. Need enriched data with T-group parsing.",
+      "pass_count": 0,
+      "fail_count": 0,
+      "total": 0,
+      "details": [],
+      "evidence": {}
+    },
+    {
+      "name": "V4_EGLC_EGLL_Delta_REAL",
+      "description": "EGLC-EGLL delta (real)",
+      "passed": true,
+      "skipped": false,
+      "pass_count": 464,
+      "fail_count": 0,
+      "total": 464,
+      "details": [
+        {
+          "date": "2020-06-01",
+          "eglc": 24.0,
+          "egll": 26.0,
+          "delta": 2.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-02",
+          "eglc": 25.0,
+          "egll": 25.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-03",
+          "eglc": 19.0,
+          "egll": 19.0,
+          "delta": 0.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-04",
+          "eglc": 16.0,
+          "egll": 16.0,
+          "delta": 0.0,
+          "wind": "N/NE"
+        },
+        {
+          "date": "2020-06-05",
+          "eglc": 16.0,
+          "egll": 16.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-06",
+          "eglc": 14.0,
+          "egll": 13.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-07",
+          "eglc": 19.0,
+          "egll": 19.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-08",
+          "eglc": 16.0,
+          "egll": 16.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-09",
+          "eglc": 19.0,
+          "egll": 20.0,
+          "delta": 1.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-10",
+          "eglc": 16.0,
+          "egll": 16.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-11",
+          "eglc": 20.0,
+          "egll": 20.0,
+          "delta": 0.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-12",
+          "eglc": 20.0,
+          "egll": 21.0,
+          "delta": 1.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-13",
+          "eglc": 24.0,
+          "egll": 24.0,
+          "delta": 0.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-14",
+          "eglc": 23.0,
+          "egll": 22.0,
+          "delta": -1.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-15",
+          "eglc": 23.0,
+          "egll": 24.0,
+          "delta": 1.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-16",
+          "eglc": 24.0,
+          "egll": 23.0,
+          "delta": -1.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-17",
+          "eglc": 22.0,
+          "egll": 22.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-18",
+          "eglc": 21.0,
+          "egll": 19.0,
+          "delta": -2.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-19",
+          "eglc": 20.0,
+          "egll": 20.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-20",
+          "eglc": 22.0,
+          "egll": 22.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-21",
+          "eglc": 23.0,
+          "egll": 22.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-22",
+          "eglc": 23.0,
+          "egll": 23.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-23",
+          "eglc": 28.0,
+          "egll": 28.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-24",
+          "eglc": 30.0,
+          "egll": 32.0,
+          "delta": 2.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-25",
+          "eglc": 31.0,
+          "egll": 32.0,
+          "delta": 1.0,
+          "wind": "E/SE (off water)"
+        },
+        {
+          "date": "2020-06-26",
+          "eglc": 30.0,
+          "egll": 30.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-27",
+          "eglc": 21.0,
+          "egll": 20.0,
+          "delta": -1.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-06-28",
+          "eglc": 21.0,
+          "egll": 20.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-29",
+          "eglc": 20.0,
+          "egll": 20.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-06-30",
+          "eglc": 19.0,
+          "egll": 19.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-01",
+          "eglc": 22.0,
+          "egll": 21.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-02",
+          "eglc": 21.0,
+          "egll": 21.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-03",
+          "eglc": 21.0,
+          "egll": 21.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-04",
+          "eglc": 21.0,
+          "egll": 21.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-05",
+          "eglc": 22.0,
+          "egll": 21.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-06",
+          "eglc": 21.0,
+          "egll": 20.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-07",
+          "eglc": 21.0,
+          "egll": 20.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-08",
+          "eglc": 20.0,
+          "egll": 20.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-09",
+          "eglc": 20.0,
+          "egll": 20.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-10",
+          "eglc": 19.0,
+          "egll": 19.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-11",
+          "eglc": 20.0,
+          "egll": 20.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-12",
+          "eglc": 24.0,
+          "egll": 24.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-07-13",
+          "eglc": 25.0,
+          "egll": 25.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-14",
+          "eglc": 21.0,
+          "egll": 22.0,
+          "delta": 1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-15",
+          "eglc": 19.0,
+          "egll": 19.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-16",
+          "eglc": 22.0,
+          "egll": 23.0,
+          "delta": 1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-17",
+          "eglc": 28.0,
+          "egll": 27.0,
+          "delta": -1.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-18",
+          "eglc": 25.0,
+          "egll": 25.0,
+          "delta": 0.0,
+          "wind": "W/NW (inland)"
+        },
+        {
+          "date": "2020-07-19",
+          "eglc": 20.0,
+          "egll": 21.0,
+          "delta": 1.0,
+          "wind": "S/SW"
+        },
+        {
+          "date": "2020-07-20",
+          "eglc": 22.0,
+          "egll": 22.0,
+          "delta": 0.0,
+          "wind": "S/SW"
+        }
+      ],
+      "evidence": {
+        "n": 464,
+        "mean": -0.112,
+        "median": 0.0,
+        "std": 0.925,
+        "min": -3.0,
+        "max": 3.0,
+        "seasonal": {
+          "JJA": {
+            "n": 464,
+            "mean": -0.112
+          }
+        },
+        "source": "/a0/usr/projects/tempbot/EGLC_EGLL_SUMMER_BIAS.csv"
+      }
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 1
+  }
+}

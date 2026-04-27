@@ -3566,6 +3566,45 @@ async def trading_loop(client, args, CAPITAL_ref: list):
                           f"final={edge_fc:.4f} "
                           f"σ={CITY_SIGMA_BASE.get(city,2.5)+0.20*T:.2f}")
                     edge_fc = ml_weight_edge(edge_fc, mid, city, T)  # [v4.32-ML] pesa con modello
+                    # [EGLC-V2-SHADOW] Run V2 pipeline in parallel for comparison logging
+                    # This block NEVER changes edge_fc, sizing, or execution. V1 remains authoritative.
+                    try:
+                        import strategy.eglc_config as _v2cfg
+                        if _v2cfg.EGLC_V2_SHADOW and city == "london":
+                            import strategy.eglc_v1_legacy as _v1leg
+                            import strategy.eglc_v2 as _v2pipe
+                            import strategy.eglc_shadow_log as _v2log
+                            # V1 legacy snapshot
+                            _v1_res = _v1leg.predict_v1(
+                                forecast_temp, bucket["type"], bucket["threshold"],
+                                T_days=_T_adj if forecast_temp is not None else T,
+                                city=city, mid=mid, is_fallback=_is_fallback_mm if forecast_temp is not None else False,
+                                observed_max=_obs if forecast_temp is not None else None
+                            )
+                            # V2 pipeline
+                            _target_dt = None
+                            if dm:
+                                from datetime import date as _date_cls
+                                _target_dt = _date_cls.fromisoformat(dm.group(1))
+                            _v2_res = _v2pipe.predict_market_resolution_v2(
+                                forecast_raw=forecast_temp if forecast_temp is not None else 0.0,
+                                bucket_edges=[bucket["threshold"] - 1, bucket["threshold"], bucket["threshold"] + 1],
+                                wind_dir_deg=None,  # TODO: pass from forecast when available
+                                target_date=_target_dt,
+                                city=city
+                            )
+                            # Log comparison
+                            _mkt_info = {
+                                "market_id": m.get("condition_id", ""),
+                                "token_id": tid,
+                                "condition_id": m.get("condition_id", ""),
+                                "city": city,
+                                "bucket_type": bucket.get("type", ""),
+                                "threshold": bucket.get("threshold", 0.0),
+                            }
+                            _v2log.log_shadow_comparison(_v1_res, _v2_res, _mkt_info)
+                    except Exception as _v2_shadow_err:
+                        log.warning("V2 shadow eval failed (V1 unaffected): %s", _v2_shadow_err)
                     # [V5-FIX] Log book data ALWAYS before any return
                     try:
                         import json as _json5

@@ -10,6 +10,10 @@ EGLC_V2_ENABLED = os.getenv("EGLC_V2_ENABLED", "false").lower() == "true"
 EGLC_V2_SHADOW = os.getenv("EGLC_V2_SHADOW", "true").lower() == "true"
 P0_VALIDATION_STATUS = os.getenv("P0_VALIDATION_STATUS", "PENDING")  # PENDING | PASS | FAIL
 
+# Real-data validation flags
+REAL_DATA_VALIDATION_ENABLED = os.getenv("REAL_DATA_VALIDATION_ENABLED", "true").lower() == "true"
+VALIDATION_DATA_DIR = os.getenv("VALIDATION_DATA_DIR", "/a0/usr/projects/tempbot")
+
 # Regime deltas from P0 validation (°C)
 REGIME_DELTAS = {
     "E_SE": -0.76,

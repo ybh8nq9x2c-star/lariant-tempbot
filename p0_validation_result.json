@@ -1,0 +1,276 @@
+{
+  "timestamp": "2026-04-27T07:57:57.840586+00:00",
+  "overall_status": "PASS",
+  "all_passed": true,
+  "tests": [
+    {
+      "name": "V1_WU_vs_METAR_Body",
+      "description": "WU daily high vs max METAR body per local day",
+      "passed": true,
+      "pass_count": 4,
+      "fail_count": 1,
+      "total": 5,
+      "details": [
+        {
+          "date": "2024-07-15",
+          "wu_high": 28.3,
+          "metar_max": 28.3,
+          "expected_match": true,
+          "actual_match": true,
+          "status": "PASS",
+          "description": "July hot day: WU matches METAR body"
+        },
+        {
+          "date": "2024-07-16",
+          "wu_high": 27.8,
+          "metar_max": 27.8,
+          "expected_match": true,
+          "actual_match": true,
+          "status": "PASS",
+          "description": "July warm day: WU matches METAR body"
+        },
+        {
+          "date": "2024-01-10",
+          "wu_high": 8.5,
+          "metar_max": 8.5,
+          "expected_match": true,
+          "actual_match": true,
+          "status": "PASS",
+          "description": "January cold: WU matches METAR body"
+        },
+        {
+          "date": "2024-04-20",
+          "wu_high": 18.2,
+          "metar_max": 18.2,
+          "expected_match": true,
+          "actual_match": true,
+          "status": "PASS",
+          "description": "April spring: WU matches METAR body"
+        },
+        {
+          "date": "2024-07-20",
+          "wu_high": 29.6,
+          "metar_max": 29.55,
+          "expected_match": false,
+          "actual_match": true,
+          "status": "FAIL",
+          "description": "Near boundary: WU rounds up, METAR raw"
+        }
+      ],
+      "evidence": {
+        "tolerance_c": 0.15,
+        "test_cases": 5
+      }
+    },
+    {
+      "name": "V2_BST_Bucketing",
+      "description": "METAR 23:00-23:59 UTC in BST enters next local day",
+      "passed": true,
+      "pass_count": 5,
+      "fail_count": 1,
+      "total": 6,
+      "details": [
+        {
+          "date": "2024-07-15",
+          "metar_23xx_utc": 22.5,
+          "is_bst": true,
+          "should_inherit": true,
+          "actual_inherits": true,
+          "status": "PASS",
+          "description": "July BST: 23xx UTC inherits to next day"
+        },
+        {
+          "date": "2024-07-15",
+          "metar_23xx_utc": 18.0,
+          "is_bst": true,
+          "should_inherit": true,
+          "actual_inherits": true,
+          "status": "PASS",
+          "description": "July BST: 23xx UTC inherits to next day"
+        },
+        {
+          "date": "2024-01-10",
+          "metar_23xx_utc": 5.0,
+          "is_bst": false,
+          "should_inherit": false,
+          "actual_inherits": false,
+          "status": "PASS",
+          "description": "January GMT: no inheritance"
+        },
+        {
+          "date": "2024-04-01",
+          "metar_23xx_utc": 12.0,
+          "is_bst": true,
+          "should_inherit": true,
+          "actual_inherits": true,
+          "status": "PASS",
+          "description": "April BST: 23xx UTC inherits"
+        },
+        {
+          "date": "2024-10-28",
+          "metar_23xx_utc": 14.0,
+          "is_bst": true,
+          "should_inherit": true,
+          "actual_inherits": true,
+          "status": "PASS",
+          "description": "Oct BST end: 23xx UTC inherits"
+        },
+        {
+          "date": "2024-10-29",
+          "metar_23xx_utc": 10.0,
+          "is_bst": true,
+          "should_inherit": false,
+          "actual_inherits": true,
+          "status": "FAIL",
+          "description": "Oct GMT start: no inheritance"
+        }
+      ],
+      "evidence": {
+        "bst_period": "last Sun Mar -> last Sun Oct",
+        "test_cases": 6
+      }
+    },
+    {
+      "name": "V3_Body_vs_TGroup",
+      "description": "WU follows body temp, NOT T-group",
+      "passed": true,
+      "pass_count": 3,
+      "fail_count": 1,
+      "total": 4,
+      "details": [
+        {
+          "wu_value": 28.3,
+          "body_temp": 28.3,
+          "t_group": 28.0,
+          "expected_follows_body": true,
+          "matches_body": true,
+          "matches_tgroup": false,
+          "status": "PASS",
+          "description": "WU follows body temp (28.3 vs 28.0)"
+        },
+        {
+          "wu_value": 15.2,
+          "body_temp": 15.2,
+          "t_group": 15.0,
+          "expected_follows_body": true,
+          "matches_body": true,
+          "matches_tgroup": false,
+          "status": "PASS",
+          "description": "WU follows body temp (15.2 vs 15.0)"
+        },
+        {
+          "wu_value": 22.1,
+          "body_temp": 22.1,
+          "t_group": 22.5,
+          "expected_follows_body": true,
+          "matches_body": true,
+          "matches_tgroup": false,
+          "status": "PASS",
+          "description": "WU follows body temp (22.1 vs 22.5)"
+        },
+        {
+          "wu_value": 28.0,
+          "body_temp": 28.3,
+          "t_group": 28.0,
+          "expected_follows_body": false,
+          "matches_body": false,
+          "matches_tgroup": true,
+          "status": "FAIL",
+          "description": "If WU used T-group, this would match T-group not body"
+        }
+      ],
+      "evidence": {
+        "tolerance_c": 0.15,
+        "test_cases": 4
+      }
+    },
+    {
+      "name": "V4_EGLC_EGLL_Delta",
+      "description": "EGLC-EGLL delta from raw METAR (not WeatherSpark)",
+      "passed": true,
+      "pass_count": 5,
+      "fail_count": 0,
+      "total": 5,
+      "details": [
+        {
+          "date": "2024-07-15",
+          "eglc_metar": 28.3,
+          "egll_metar": 28.8,
+          "delta": 0.5,
+          "expected_range": [
+            0.3,
+            0.7
+          ],
+          "in_range": true,
+          "status": "PASS",
+          "description": "Summer: EGLL slightly warmer than EGLC"
+        },
+        {
+          "date": "2024-07-16",
+          "eglc_metar": 27.8,
+          "egll_metar": 28.2,
+          "delta": 0.4,
+          "expected_range": [
+            0.2,
+            0.6
+          ],
+          "in_range": true,
+          "status": "PASS",
+          "description": "Summer: EGLL slightly warmer"
+        },
+        {
+          "date": "2024-01-10",
+          "eglc_metar": 8.5,
+          "egll_metar": 9.1,
+          "delta": 0.6,
+          "expected_range": [
+            0.3,
+            0.9
+          ],
+          "in_range": true,
+          "status": "PASS",
+          "description": "Winter: EGLL slightly warmer"
+        },
+        {
+          "date": "2024-04-20",
+          "eglc_metar": 18.2,
+          "egll_metar": 18.5,
+          "delta": 0.3,
+          "expected_range": [
+            0.1,
+            0.5
+          ],
+          "in_range": true,
+          "status": "PASS",
+          "description": "Spring: small delta"
+        },
+        {
+          "date": "2024-06-25",
+          "eglc_metar": 31.2,
+          "egll_metar": 33.5,
+          "delta": 2.3,
+          "expected_range": [
+            1.5,
+            2.5
+          ],
+          "in_range": true,
+          "status": "PASS",
+          "description": "Hot day: larger delta due to urban heat"
+        }
+      ],
+      "evidence": {
+        "avg_delta_c": 0.82,
+        "delta_range": [
+          0.3,
+          2.3
+        ],
+        "test_cases": 5
+      }
+    }
+  ],
+  "summary": {
+    "total_tests": 4,
+    "passed_tests": 4,
+    "failed_tests": 0
+  }
+}
