@@ -6,7 +6,8 @@ from strategy.eglc_config import (
     REGIME_DELTAS, HOT_DAY_ADJ, REGIME_CAP, BOUNDARY_PROXIMITY,
     MIN_CONFIDENCE, MIN_EDGE, ORACLE_SIGMA, MIN_REGIME_EFFECT,
     WIND_SPREAD_LIMIT, MODEL_SPREAD_LIMIT, BST_START_MONTH, BST_END_MONTH,
-    CONFIDENCE_LEVELS, can_trade_v2_live, EGLC_V2_SHADOW, EGLC_V2_ENABLED
+    CONFIDENCE_LEVELS, can_trade_v2_live, EGLC_V2_SHADOW, EGLC_V2_ENABLED,
+    EGLC_V2_REQUIRE_WIND_FOR_REGIME
 )
 
 log = logging.getLogger("tempbot")
@@ -260,12 +261,25 @@ def predict_market_resolution_v2(forecast_raw: float, bucket_edges: list,
         result["regime_reason"] = regime["reason_code"]
         result["confidence"] = regime["confidence"]
     else:
-        regime = {
-            "regime_code": "R0", "total_adjustment": 0.0,
-            "reason_code": "NO_WIND_DATA", "confidence": "LOW"
-        }
-        result["warnings"].append("No wind direction data")
-
+        # Missing wind direction - handle based on config
+        result["missing_wind_dir"] = True
+        if EGLC_V2_REQUIRE_WIND_FOR_REGIME:
+            # Wind required: defer with explicit reason
+            regime = {
+                "regime_code": "DEFER", "total_adjustment": 0.0,
+                "reason_code": "MISSING_WIND_REQUIRED", "confidence": "LOW"
+            }
+            result["regime_reason"] = "MISSING_WIND_REQUIRED"
+            result["warnings"].append("Wind direction required but missing")
+        else:
+            # Wind not required: fallback to R4 (neutral)
+            regime = {
+                "regime_code": "R4", "total_adjustment": 0.0,
+                "reason_code": "MISSING_WIND_FALLBACK", "confidence": "LOW"
+            }
+            result["regime_reason"] = "MISSING_WIND_FALLBACK"
+            result["confidence"] = "LOW"
+            result["warnings"].append("No wind data, falling back to R4 neutral")
     # Step 2: Apply regime adjustment (only near boundaries)
     forecast_adjusted, adj_applied, adj_reason = apply_regime_adjustment(
         forecast_raw, regime, bucket_edges
@@ -352,7 +366,7 @@ def should_trade_v2(prediction_result: dict, bucket_edges: list = None,
         }
 
     # Defer if regime classification said to defer
-    if prediction_result.get("regime_reason") in ("WIND_SPREAD", "MODEL_SPREAD"):
+    if prediction_result.get("regime_reason") in ("WIND_SPREAD", "MODEL_SPREAD", "MISSING_WIND_REQUIRED"):
         return {
             "action": "DEFER",
             "reason": f"Regime DEFER: {prediction_result['regime_reason']}"
